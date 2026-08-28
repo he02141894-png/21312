@@ -270,7 +270,9 @@ if current_list:
     # 🔧 快捷管理鍵 (僅幹部看見)
     # ==========================================
     if is_admin:
-    st.write("🔧 **最高幹部管理快捷鍵：**")
+        # 💡 請在這一行的最前面，手動補上 4 個英文空格（讓它比 if 更往右進一階）！
+        st.write("🔧 **最高幹部管理快捷鍵：**") 
+
     for idx, row in df.iterrows():
         # 💡 在 for 迴圈之下的「每一行」，最前面都必須再多加上 4 個英文空格（或 1 個 Tab）！
         orig_idx = next(i for i, x in enumerate(st.session_state.guild_list) if x["角色名稱"] == row["角色名稱"])
