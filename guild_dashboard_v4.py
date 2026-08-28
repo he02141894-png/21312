@@ -7,7 +7,7 @@ from streamlit_gsheets import GSheetsConnection
 # 設定網頁標題與排版
 st.set_page_config(page_title="公會資訊管理系統 v17", page_icon="⚔️", layout="wide")
 
-# 💡 本地持久化資料庫檔名，用來保障新增/刪除永久儲存不消失
+# LOCAL_DB 檔名，用來保障新增/刪除永久儲存不消失
 LOCAL_DB = "guild_cloud_db.json"
 
 # ==========================================
@@ -25,12 +25,11 @@ GEAR_FIELDS = [
 "頭冠", "耳環", "項鍊", "手環", "戒指", "驅動器", "觀測儀", "偏轉器"
 ]
 
-# 串接 Google Sheets 連線 (僅作為初始匯入或備用讀取)
+# 串接 Google Sheets 連線 (作為初始讀取)
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 函式：讀取與儲存雲端資料 (雙軌防消失設計) ---
+# --- 函式：讀取與儲存雲端資料 ---
 def load_data_from_storage():
-    # 軌道一：如果伺服器上已經有維護過最新資料，以最新資料為主
     if os.path.exists(LOCAL_DB):
         try:
             with open(LOCAL_DB, "r", encoding="utf-8") as f:
@@ -38,17 +37,14 @@ def load_data_from_storage():
         except Exception:
             pass
 
-    # 軌道二：如果是新架設，從 Google Sheets 撈取初始名單
     try:
         df_sheet = conn.read(ttl="0")
         df_sheet["戰力"] = pd.to_numeric(df_sheet["戰力"], errors="coerce").fillna(0).astype(int)
         data = df_sheet.to_dict(orient="records")
-        # 存入本地備用
         with open(LOCAL_DB, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
         return data
     except Exception as e:
-        # 軌道三：當雲端皆全新且無連線時建立完美的保底初始格式
         default_gears = {field: "無" for field in GEAR_FIELDS}
         default_gears["主武"] = "究極終焉劍 +15"
         default_gears["二武"] = "弒神之刃 +14"
@@ -62,7 +58,6 @@ def load_data_from_storage():
         return init_data
 
 def save_data_to_storage(data_list):
-    # 💡 核心修正：將資料安全寫入伺服器獨立的永久 JSON 檔案中，繞過 Google 寫入限制
     with open(LOCAL_DB, "w", encoding="utf-8") as f:
         json.dump(data_list, f, ensure_ascii=False, indent=4)
     st.session_state.guild_list = data_list
@@ -104,7 +99,7 @@ else:
     st.sidebar.info("ℹ️ 當前為「公開瀏覽模式」，前五名大佬的戰力已被單獨遮蔽。")
 
 # ==========================================
-# 📝 權限 A：最高幹部專屬區 (全面新增與修改)
+# 📝 權限 A：最高幹部專屬區
 # ==========================================
 if is_admin:
     st.subheader("📝 成員全面資料維護 (最高幹部專區)")
@@ -185,7 +180,6 @@ if is_admin:
         with g_co27:
             gear_inputs["偏轉器"] = st.text_input("偏轉器", value=default_gears["偏轉器"])
 
-
         submit_button = st.form_submit_button(label=button_label, type="primary")
 
     if submit_button:
@@ -258,16 +252,20 @@ st.subheader("📊 自動化整理：最新公會全裝備名單")
 current_list = load_data_from_storage()
 
 if current_list:
-    df = pd.DataFrame(current_list)
-    df = df.sort_values(by="戰力", ascending=False).reset_index(drop=True)
-    df["真實排名"] = df.index + 1
-    df["職業顯示"] = df["職業"]
+    full_df = pd.DataFrame(current_list)
+    full_df = full_df.sort_values(by="戰力", ascending=False).reset_index(drop=True)
+    full_df["真實排名"] = full_df.index + 1
+    full_df["職業顯示"] = full_df["職業"]
+
+    # 複製一份專門用來在網頁表格顯示的 DataFrame
+    display_df = full_df.copy()
 
     # 🔒 戰力精準遮蔽前五名
-    
-    if is_admin:
-        st.write("🔧 **最高幹部管理快捷鍵：**")
-        for idx, row in df.iterrows():
-            # 💡 直接讓 for 迴圈正常跑完即可，後面不要接任何 else 區塊！
-            orig_idx = next(i for i, x in enumerate(st.session_state.guild_list) if x["角色名稱"] == row["角色名稱"])
-
+    if not is_admin:
+        st.warning("🔒 戰力安全防護：目前權限下，系統已自動遮蔽公會前 5 名大佬的【戰力數字】與【真實排名】。")
+        display_df["戰力(排名)"] = display_df.apply(
+            lambda r: f"🔒 資訊保密" if r["真實排名"] <= 5 else f"{int(r['戰力']):,} (#{r['真實排名']})", axis=1
+        )
+        display_df["排名顯示"] = display_df["真實排名"].apply(lambda x: "🎖️ 大佬" if x <= 5 else str(x))
+    else:
+        display_df["戰力(排名)"] = display_df.apply(lambda r: f"{int(r['戰力']):,} (#{r['真實排名']})", axis=1)
