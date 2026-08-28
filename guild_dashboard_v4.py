@@ -2,16 +2,15 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-from streamlit_gsheets import GSheetsConnection
 
 # 設定網頁標題與排版
 st.set_page_config(page_title="公會資訊管理系統 v17", page_icon="⚔️", layout="wide")
 
 # LOCAL_DB 檔名，用來保障新增/刪除永久儲存不消失
-LOCAL_DB = "guild_cloud_db.json"
+LOCAL_DB = "guild_cloud_db_v17.json"
 
 # ==========================================
-# 🔑 密碼與雲端安全機制
+# 🔑 密碼與安全機制
 # ==========================================
 JOB_PASSWORD = st.secrets.get("job_password", "job123")      # 💡 職業維護專用密碼
 ADMIN_PASSWORD = st.secrets.get("admin_password", "admin123")  # 💡 最高幹部管理密碼
@@ -25,11 +24,9 @@ GEAR_FIELDS = [
 "頭冠", "耳環", "項鍊", "手環", "戒指", "驅動器", "觀測儀", "偏轉器"
 ]
 
-# 串接 Google Sheets 連線 (作為初始讀取)
-conn = st.connection("gsheets", type=GSheetsConnection)
-
 # --- 函式：讀取與儲存雲端資料 ---
 def load_data_from_storage():
+    # 優先讀取已經保存的本地持久化檔案
     if os.path.exists(LOCAL_DB):
         try:
             with open(LOCAL_DB, "r", encoding="utf-8") as f:
@@ -37,25 +34,26 @@ def load_data_from_storage():
         except Exception:
             pass
 
-    try:
-        df_sheet = conn.read(ttl="0")
-        df_sheet["戰力"] = pd.to_numeric(df_sheet["戰力"], errors="coerce").fillna(0).astype(int)
-        data = df_sheet.to_dict(orient="records")
-        with open(LOCAL_DB, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-        return data
-    except Exception as e:
-        default_gears = {field: "無" for field in GEAR_FIELDS}
-        default_gears["主武"] = "究極終焉劍 +15"
-        default_gears["二武"] = "弒神之刃 +14"
-        default_gears["三武"] = "破空短刃 +10"
-        default_gears["驅動器"] = "量子核心 Mk-III"
-        default_gears["偏轉器"] = "絕對防禦障壁"
-        init_data = [
-            {"角色名稱": "傲視群雄_X", "職業": "制裁者、毀滅", "戰力": 1250000, **default_gears},
-            {"角色名稱": "影之刃_凱", "職業": "幻影神兵", "戰力": 1180000, **{f: "無" for f in GEAR_FIELDS}}
-        ]
-        return init_data
+    # 如果是初次建立，自動生成完美的初始名單，保證排行榜絕對看得到成員
+    default_gears = {field: "無" for field in GEAR_FIELDS}
+    default_gears["主武"] = "究極終焉劍 +15"
+    default_gears["二武"] = "弒神之刃 +14"
+    default_gears["三武"] = "破空短刃 +10"
+    default_gears["驅動器"] = "量子核心 Mk-III"
+    default_gears["偏轉器"] = "絕對防禦障壁"
+    
+    init_data = [
+        {"角色名稱": "傲視群雄_X", "職業": "制裁者、毀滅", "戰力": 1250000, **default_gears},
+        {"角色名稱": "影之刃_凱", "職業": "幻影神兵", "戰力": 1180000, **{f: "無" for f in GEAR_FIELDS}},
+        {"角色名稱": "元素主宰_麗", "職業": "操靈師", "戰力": 1120000, **{f: "無" for f in GEAR_FIELDS}},
+        {"角色名稱": "聖光守護_明", "職業": "仲裁者", "戰力": 1050000, **{f: "無" for f in GEAR_FIELDS}},
+        {"角色名稱": "暗夜箭神_風", "職業": "幻影神兵", "戰力": 980000, **{f: "無" for f in GEAR_FIELDS}},
+        {"角色名稱": "基層打寶隊員", "職業": "匠師", "戰力": 750000, **{f: "無" for f in GEAR_FIELDS}}
+    ]
+    
+    with open(LOCAL_DB, "w", encoding="utf-8") as f:
+        json.dump(init_data, f, ensure_ascii=False, indent=4)
+    return init_data
 
 def save_data_to_storage(data_list):
     with open(LOCAL_DB, "w", encoding="utf-8") as f:
@@ -66,7 +64,7 @@ def save_data_to_storage(data_list):
 if "guild_list" not in st.session_state:
     st.session_state.guild_list = load_data_from_storage()
 
-st.title("⚔️ 公會資訊雲端管理系統 v17 (功能全面安全版)")
+st.title("⚔️ 公會資訊管理系統 v17 (功能全面完全體)")
 
 # ==========================================
 # 🔐 權限控制中心
@@ -257,7 +255,6 @@ if current_list:
     full_df["真實排名"] = full_df.index + 1
     full_df["職業顯示"] = full_df["職業"]
 
-    # 複製一份專門用來在網頁表格顯示的 DataFrame
     display_df = full_df.copy()
 
     # 🔒 戰力精準遮蔽前五名
