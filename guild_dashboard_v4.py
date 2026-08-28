@@ -4,9 +4,9 @@ import json
 import os
 
 # 設定網頁標題與排版
-st.set_page_config(page_title="公會資訊管理系統 v11", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="公會資訊管理系統 v14", page_icon="⚔️", layout="wide")
 
-DB_FILE = "guild_members_v4.json"
+DB_FILE = "guild_members_v7.json"  # 💡 更新職業規格，使用全新乾淨的資料庫防止與舊檔案結構衝突
 
 # ==========================================
 # 🔑 密碼隱藏安全機制
@@ -14,7 +14,7 @@ DB_FILE = "guild_members_v4.json"
 JOB_PASSWORD = st.secrets.get("job_password", "job123")      # 💡 職業維護專用密碼
 ADMIN_PASSWORD = st.secrets.get("admin_password", "admin123")  # 💡 最高幹部管理密碼
 
-# --- 定義遊戲職業選項 ---
+# --- 💡【職業體系全面正名】精準定義你要求的 8 大核心職業選項 ---
 JOB_OPTIONS = [
     "制裁者", "幻影神兵", "執行者", "操靈師", 
     "無畏艦", "匠師", "仲裁者", "毀滅"
@@ -22,10 +22,10 @@ JOB_OPTIONS = [
 
 # --- 定義 16 格裝備欄位 ---
 GEAR_FIELDS = [
-"主武", "副", 
-"頸部","上身","手臂","下身","腿部",
-"頭冠","耳環","項鍊","手環","戒指"
-"驅動器","觀測儀","偏轉器"
+    "主武", "二武", "三武", "頸部",
+    "上身", "手臂", "下身", "腿部",
+    "頭冠", "耳環", "項鍊", "手環",
+    "戒指", "驅動器", "觀測儀", "偏轉器"
 ]
 
 # --- 函式：讀取與儲存 JSON 資料 ---
@@ -33,12 +33,15 @@ def load_data():
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
+    # 建立全新職業與 16 格裝備的初始預設資料
     default_gears = {field: "無" for field in GEAR_FIELDS}
-    default_gears["主武"] = "不滅聖劍 +15"
-    default_gears["副"] = "無"
-    default_gears["盔甲"] = "諸神黃昏鎧甲"
+    default_gears["主武"] = "究極終焉劍 +15"
+    default_gears["二武"] = "弒神之刃 +14"
+    default_gears["驅動器"] = "量子核心 Mk-III"
     return [
-   ]
+        {"角色名稱": "傲視群雄_X", "職業": ["制裁者", "毀滅"], "戰力": 1250000, "裝備": default_gears},
+        {"角色名稱": "影之刃_凱", "職業": ["幻影神兵"], "戰力": 1180000, "裝備": {field: "無" for field in GEAR_FIELDS}}
+    ]
 
 def save_data(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
@@ -48,7 +51,7 @@ def save_data(data):
 if "guild_list" not in st.session_state:
     st.session_state.guild_list = load_data()
 
-st.title("⚔️ 公會資訊自動化管理系統 v11 (16格裝備分類版)")
+st.title("⚔️ 公會資訊自動化管理系統 v14 (全新八大職業正名版)")
 
 # ==========================================
 # 🔐 權限控制中心 (三階段身分切換)
@@ -82,7 +85,7 @@ else:
 
 
 # ==========================================
-# 📝 權限 A：最高幹部專屬區
+# 📝 權限 A：最高幹部專屬區 (全面資料維護)
 # ==========================================
 if is_admin:
     st.subheader("📝 成員全面資料維護 (最高幹部專區)")
@@ -126,31 +129,35 @@ if is_admin:
         st.markdown("##### 🛡️ 16 格核心裝備細項面板")
         
         gear_inputs = {}
-        st.markdown("**武器 & 防具**")
-        g_col1, g_col2 = st.columns(2)
+        st.markdown("**第一組：武器體系 & 肢體裝備**")
+        g_col1, g_col2, g_col3, g_col4 = st.columns(4)
         with g_col1:
             gear_inputs["主武"] = st.text_input("主武", value=default_gears["主武"])
-            gear_inputs["副"] = st.text_input("副", value=default_gears["副"])
-        with g_col2:
-            gear_inputs["頸部"] = st.text_input("頸部", value=default_gears["頸部"])
-            gear_inputs["上身"] = st.text_input("上身", value=default_gears["上身"])
             gear_inputs["手臂"] = st.text_input("手臂", value=default_gears["手臂"])
+        with g_col2:
+            gear_inputs["二武"] = st.text_input("二武", value=default_gears["二武"])
             gear_inputs["下身"] = st.text_input("下身", value=default_gears["下身"])
+        with g_col3:
+            gear_inputs["三武"] = st.text_input("三武", value=default_gears["三武"])
             gear_inputs["腿部"] = st.text_input("腿部", value=default_gears["腿部"])
-            
-        st.markdown("**飾品 & 擴充**")
-        g_col5, g_col6 = st.columns(2)
-        with g_col5:
+        with g_col4:
+            gear_inputs["頸部"] = st.text_input("頸部", value=default_gears["頸部"])
             gear_inputs["頭冠"] = st.text_input("頭冠", value=default_gears["頭冠"])
+            
+        st.markdown("**第二組：服飾飾品 & 核心設備**")
+        g_col5, g_col6, g_col7, g_col8 = st.columns(4)
+        with g_col5:
+            gear_inputs["上身"] = st.text_input("上身", value=default_gears["上身"])
+            gear_inputs["驅動器"] = st.text_input("驅動器", value=default_gears["驅動器"])
+        with g_col6:
             gear_inputs["耳環"] = st.text_input("耳環", value=default_gears["耳環"])
+            gear_inputs["觀測儀"] = st.text_input("觀測儀", value=default_gears["觀測儀"])
+        with g_col7:
             gear_inputs["項鍊"] = st.text_input("項鍊", value=default_gears["項鍊"])
+            gear_inputs["偏轉器"] = st.text_input("偏轉器", value=default_gears["偏轉器"])
+        with g_col8:
             gear_inputs["手環"] = st.text_input("手環", value=default_gears["手環"])
             gear_inputs["戒指"] = st.text_input("戒指", value=default_gears["戒指"])
-        with g_col7:
-
-            gear_inputs["驅動器"] = st.text_input("驅動器", value=default_gears["驅動器"])
-            gear_inputs["觀測儀"] = st.text_input("觀測儀", value=default_gears["觀測儀"])
-            gear_inputs["偏轉器"] = st.text_input("偏轉器", value=default_gears["偏轉器"])
 
         submit_button = st.form_submit_button(label=button_label, type="primary")
 
@@ -219,7 +226,7 @@ elif is_job_updater:
 
 
 # ==========================================
-# 📊 核心排行榜
+# 📊 核心排行榜 (自動對齊最新職業)
 # ==========================================
 st.subheader("📊 自動化整理：最新公會全裝備名單")
 
@@ -230,8 +237,9 @@ if st.session_state.guild_list:
     
     df["職業顯示"] = df["職業"].apply(lambda x: "、".join(x) if isinstance(x, list) else (x if pd.notna(x) else "未設定"))
 
+    # 🔒 戰力精準遮蔽前五名
     if not is_admin:
-        st.warning("🔒 戰力安全防護：目前權限下，系統已自動遮蔽公會前 5 名大佬的【戰力數字】與【真實排名】。")
+        st.warning("🔒 戰力安全防護：目前權限下，系統已自動遮蔽公會前 5名 大佬的【戰力數字】與【真實排名】。")
         df["戰力(排名)"] = df.apply(
             lambda r: f"🔒 資訊保密" if r["真實排名"] <= 5 else f"{int(r['戰力']):,} (#{r['真實排名']})", axis=1
         )
@@ -250,11 +258,6 @@ if st.session_state.guild_list:
     rename_dict = {"排名顯示": "排名", "職業顯示": "職業", "戰力(排名)": "戰力(排名)"}
     display_df = display_df.rename(columns=rename_dict)
     
-    # 🔍 全體職業篩選器
+    # 🔍 全體職業篩選器（💡 自動與最新制裁者、幻影神兵等選單對齊）
     filter_job = st.selectbox("🔍 依職業篩選現有排行榜 (可選填)：", ["顯示全部職業"] + JOB_OPTIONS)
     if filter_job != "顯示全部職業":
-        # 💡【已確認並修正此處縮排】：下方這行現已正確包含 4 個空格的縮排
-        display_df = display_df[display_df["職業"].apply(lambda x: filter_job in x if isinstance(x, str) else False)].reset_index(drop=True)
-
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
-    
