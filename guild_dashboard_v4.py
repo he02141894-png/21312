@@ -4,10 +4,10 @@ import json
 import os
 
 # 設定網頁標題與排版
-st.set_page_config(page_title="公會資訊自動化管理系統", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="公會資訊自動化整理系統", page_icon="⚔️", layout="wide")
 
-# 💡 更換全新的資料庫檔名，徹底洗掉跟舊版本衝突的格式殘留
-LOCAL_DB = "guild_cloud_db_v18.json"
+# 💡 升級為乾淨的 v19 持久化資料庫，徹底洗掉跟舊快取衝突的髒資料
+LOCAL_DB = "guild_cloud_db_v19.json"
 
 # ==========================================
 # 🔑 密碼權限隱藏安全機制
@@ -23,22 +23,23 @@ JOB_OPTIONS = ["制裁者", "幻影神兵", "執行者", "操靈師", "無畏艦
 GEAR_FIELDS = [
     "主武", "二武", "三武", "四武", 
     "頸部", "上身", "手臂", "下身",
-    "腿部", "頭冠", "耳環", "項鍊", 
+    "腿部", "頭冠", "耳環", "项鍊", 
     "手環", "戒指", "驅動器", "觀測儀", "偏轉器"
 ]
 
 # --- 函式：讀取與儲存本地持久化資料 ---
 def load_data_from_storage():
+    # 💡 核心優化：每次強制讀取硬碟中最真實的檔案，防止被切換身分的快取洗掉名單
     if os.path.exists(LOCAL_DB):
         try:
             with open(LOCAL_DB, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if len(data) > 0:  # 確保裡面真的有成員資料
-                    return data
+                content = json.load(f)
+                if isinstance(content, list) and len(content) > 0:
+                    return content
         except Exception:
             pass
 
-    # 💡【保底強制機制】：如果檔案不存在或讀取失敗，強制生成完美對齊的初始名單
+    # 若檔案不存在或損毀，自動建立完整的初始名單（保證名單絕對在畫面上）
     default_gears = {field: "無" for field in GEAR_FIELDS}
     default_gears["主武"] = "究極終焉劍 +15"
     default_gears["二武"] = "弒神之刃 +14"
@@ -63,13 +64,13 @@ def load_data_from_storage():
 def save_data_to_storage(data_list):
     with open(LOCAL_DB, "w", encoding="utf-8") as f:
         json.dump(data_list, f, ensure_ascii=False, indent=4)
+    # 同步強制更新 Session 記憶體
     st.session_state.guild_list = data_list
 
-# 初始化網頁記憶體快取
-if "guild_list" not in st.session_state or not st.session_state.guild_list:
-    st.session_state.guild_list = load_data_from_storage()
+# 💡【雙重保險掛鉤】：每次網頁重整時，強迫去硬碟載入最新的真實數據，徹底杜絕資料人間蒸發
+st.session_state.guild_list = load_data_from_storage()
 
-st.title("⚔️ 公會資訊自動化管理系統 (職權階層完全體)")
+st.title("⚔️ 公會資訊自動化管理系統 (防消失防諜最終版)")
 
 # ==========================================
 # 🔐 權限控制中心 (4 種身分切換)
@@ -233,4 +234,3 @@ elif is_gear_updater:
             target_idx_gear = next(i for i, x in enumerate(current_list) if x["角色名稱"] == selected_name_gear)
             current_member_gear = current_list[target_idx_gear]
             
-            current_gears = {field: current_member_gear.get(field, "無") for field in GEAR_FIELDS}
