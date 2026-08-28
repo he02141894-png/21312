@@ -9,12 +9,8 @@ st.set_page_config(page_title="公會資訊管理系統 v5", page_icon="⚔️",
 DB_FILE = "guild_members_v3.json"
 
 # ==========================================
-# 🔑 密碼隱藏安全機制 (從 Streamlit 雲端保險箱讀取)
+# 🔑 密碼隱藏安全機制
 # ==========================================
-# 如果是在本地測試，可以在程式碼同目錄下建立 .streamlit/secrets.toml
-# 內容寫入：
-# job_password = "job123"
-# admin_password = "admin123"
 JOB_PASSWORD = st.secrets.get("job_password", "job123")      # 💡 職業維護專用密碼
 ADMIN_PASSWORD = st.secrets.get("admin_password", "admin123")  # 💡 最高幹部管理密碼
 
@@ -76,7 +72,7 @@ else:
 
 
 # ==========================================
-# 📝 權限 A：最高幹部專屬區（新增成員與全面修改）
+# 📝 權限 A：最高幹部專屬區
 # ==========================================
 if is_admin:
     st.subheader("📝 成員全面資料維護 (最高幹部專區)")
@@ -87,7 +83,13 @@ if is_admin:
     if st.session_state.edit_index != -1:
         current_item = st.session_state.guild_list[st.session_state.edit_index]
         default_name = current_item["角色名稱"]
-        default_jobs = [j for j in current_item["職業"] if j in JOB_OPTIONS] if isinstance(current_item["職業"], list) else []
+        
+        # 💡【防錯安全過濾】：確保預設職業一定存在於 JOB_OPTIONS 中
+        raw_jobs = current_item.get("職業", [])
+        if isinstance(raw_jobs, str):  # 預防舊資料型態為字串
+            raw_jobs = [raw_jobs]
+        default_jobs = [j for j in raw_jobs if j in JOB_OPTIONS]
+        
         default_power = int(current_item["戰力"])
         default_gear = current_item["裝備"]
         button_label = "💾 儲存修改資訊"
@@ -135,27 +137,31 @@ if is_admin:
             st.rerun()
 
 # ==========================================
-# 📝 權限 B：職業負責人專屬區（單獨開放職業權限）
+# 📝 權限 B：職業負責人專屬區
 # ==========================================
 elif is_job_updater:
     st.subheader("🛡️ 職業標籤即時更新 (職業負責人專區)")
     st.caption("💡 在此模式下，您只能調整成員的職業設定，無法修改角色名稱、戰力、裝備或刪除隊員。")
     
-    # 建立一個簡便的單獨修改職業表單
     member_names = [m["角色名稱"] for m in st.session_state.guild_list]
     
     if member_names:
         with st.form(key="job_only_form"):
-            c_select, c_job = st.columns(2)
+            c_select, c_job = st.columns(2) 
             with c_select:
                 selected_name = st.selectbox("請選擇要更新職業的角色：", options=member_names)
             
-            # 抓出該角色目前的職業作為預設值
             target_idx = next(i for i, x in enumerate(st.session_state.guild_list) if x["角色名稱"] == selected_name)
-            current_jobs = st.session_state.guild_list[target_idx].get("職業", [])
+            
+            # 💡【修正此處的報錯點】：將資料庫抓出的資料進行清洗，排除任何不在 JOB_OPTIONS 中的殘留舊值
+            raw_current_jobs = st.session_state.guild_list[target_idx].get("職業", [])
+            if isinstance(raw_current_jobs, str):
+                raw_current_jobs = [raw_current_jobs]
+            valid_current_jobs = [j for j in raw_current_jobs if j in JOB_OPTIONS]
             
             with c_job:
-                updated_jobs = st.multiselect("重新設定該角色的職業 (可複選)：", options=JOB_OPTIONS, default=current_jobs)
+                # 傳入清洗過的 valid_current_jobs，保證百分之百不會報錯
+                updated_jobs = st.multiselect("重新設定該角色的職業 (可複選)：", options=JOB_OPTIONS, default=valid_current_jobs)
                 
             job_submit = st.form_submit_button("💾 僅儲存職業變更", type="primary")
             
@@ -181,16 +187,13 @@ if st.session_state.guild_list:
     df = df.sort_values(by="戰力", ascending=False).reset_index(drop=True)
     df["排名"] = df.index + 1
     
-    # 📊 貼心小功能：開放所有人使用的「職業公開篩選器」
     filter_job = st.selectbox("🔍 依職業篩選排行榜 (可選填)：", ["顯示全部職業"] + JOB_OPTIONS)
     if filter_job != "顯示全部職業":
-        # 篩選出列表中有包含該職業的列
         df = df[df["職業"].apply(lambda x: filter_job in x if isinstance(x, list) else False)].reset_index(drop=True)
-        # 重新計算篩選後的局部排名
         df["排名"] = df.index + 1
 
     df["戰力(排名)"] = df.apply(lambda r: f"{int(r['戰力']):,} (#{r['排名']})", axis=1)
-    df["職業顯示"] = df["職業"].apply(lambda x: "、".join(x) if isinstance(x, list) else x)
+    df["職業顯示"] = df["職業"].apply(lambda x: "、".join(x) if isinstance(x, list) else (x if pd.notna(x) else "未設定"))
     
     display_df = df[["排名", "角色名稱", "職業顯示", "戰力(排名)", "裝備"]]
     display_df.columns = ["排名", "角色名稱", "職業", "戰力(排名)", "裝備"]
@@ -205,7 +208,7 @@ if st.session_state.guild_list:
         for idx, row in df.iterrows():
             orig_idx = next(i for i, x in enumerate(st.session_state.guild_list) if x["角色名稱"] == row["角色名稱"])
             
-            c1, col_space, c2, c3 = st.columns()
+            c1, col_space, c2, c3 = st.columns(4) 
             with c1:
                 st.write(f"【#{row['排名']}】 **{row['角色名稱']}** ｜ 職業：`{row['職業顯示']}` ｜ (戰力: {int(row['戰力']):,})")
             with c2:
@@ -213,10 +216,11 @@ if st.session_state.guild_list:
                     st.session_state.edit_index = orig_idx
                     st.rerun()
             with c3:
-                if st.button("🗑️ 刪除成員", key=f"del_{orig_idx}"):
-                    del st.session_state.guild_list[orig_idx]
-                    save_data(st.session_state.guild_list)
-                    st.toast(f"🗑️ 已刪除成員資訊")
-                    st.rerun()
+                if f"del_{orig_idx}" not in st.session_state:
+                    if st.button("🗑️ 刪除成員", key=f"del_{orig_idx}"):
+                        del st.session_state.guild_list[orig_idx]
+                        save_data(st.session_state.guild_list)
+                        st.toast(f"🗑️ 已刪除成員資訊")
+                        st.rerun()
 else:
     st.info("目前公會暫無成員資訊。")
