@@ -155,7 +155,7 @@ if is_admin:
             gear_inputs["腿部"] = st.text_input("腿部", value=default_gears["腿部"])
 
         st.markdown("**第三組：飾品**")
-        g_co20, g_co21, g_co22, g_co21, g_co24 = st.columns(5)
+        g_co20, g_co21, g_co22, g_co23, g_co24 = st.columns(5)
         with g_co20:
             gear_inputs["頭冠"] = st.text_input("頭冠", value=default_gears["頭冠"])
         with g_co21:
