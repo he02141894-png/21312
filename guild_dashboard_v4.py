@@ -129,36 +129,52 @@ if is_admin:
         st.markdown("##### 🛡️ 16 格核心裝備細項面板")
         
         gear_inputs = {}
-        st.markdown("**第一組：武器體系 & 肢體裝備**")
+        st.markdown("**第一組：武器**")
         g_col1, g_col2, g_col3, g_col4 = st.columns(4)
         with g_col1:
             gear_inputs["主武"] = st.text_input("主武", value=default_gears["主武"])
-            gear_inputs["手臂"] = st.text_input("手臂", value=default_gears["手臂"])
         with g_col2:
             gear_inputs["二武"] = st.text_input("二武", value=default_gears["二武"])
-            gear_inputs["下身"] = st.text_input("下身", value=default_gears["下身"])
         with g_col3:
             gear_inputs["三武"] = st.text_input("三武", value=default_gears["三武"])
-            gear_inputs["腿部"] = st.text_input("腿部", value=default_gears["腿部"])
         with g_col4:
-            gear_inputs["頸部"] = st.text_input("頸部", value=default_gears["頸部"])
-            gear_inputs["頭冠"] = st.text_input("頭冠", value=default_gears["頭冠"])
-            
-        st.markdown("**第二組：服飾飾品 & 核心設備**")
-        g_col5, g_col6, g_col7, g_col8 = st.columns(4)
+            gear_inputs["四武"] = st.text_input("四武", value=default_gears["四武])
+
+        st.markdown("**第二組：防具**")
+        g_col5, g_col6, g_col7, g_col8, g_col9 = st.columns(5)
         with g_col5:
-            gear_inputs["上身"] = st.text_input("上身", value=default_gears["上身"])
-            gear_inputs["驅動器"] = st.text_input("驅動器", value=default_gears["驅動器"])
+            gear_inputs["頸部"] = st.text_input("頸部", value=default_gears["頸部"])
         with g_col6:
-            gear_inputs["耳環"] = st.text_input("耳環", value=default_gears["耳環"])
-            gear_inputs["觀測儀"] = st.text_input("觀測儀", value=default_gears["觀測儀"])
+            gear_inputs["上身"] = st.text_input("上身", value=default_gears["上身"])
         with g_col7:
-            gear_inputs["項鍊"] = st.text_input("項鍊", value=default_gears["項鍊"])
-            gear_inputs["偏轉器"] = st.text_input("偏轉器", value=default_gears["偏轉器"])
+            gear_inputs["手臂"] = st.text_input("手臂", value=default_gears["手臂"])
         with g_col8:
+            gear_inputs["下身"] = st.text_input("下身", value=default_gears["下身"])
+        with g_col9:
+            gear_inputs["腿部"] = st.text_input("腿部", value=default_gears["腿部"])
+
+        st.markdown("**第三組：飾品**")
+        g_co20, g_co21, g_co22, g_co21, g_co24 = st.columns(5)
+        with g_co20:
+            gear_inputs["頭冠"] = st.text_input("頭冠", value=default_gears["頭冠"])
+        with g_co21:
+            gear_inputs["耳環"] = st.text_input("耳環", value=default_gears["耳環"])
+        with g_co22:
+            gear_inputs["項鍊"] = st.text_input("項鍊", value=default_gears["項鍊"])
+        with g_co23:
             gear_inputs["手環"] = st.text_input("手環", value=default_gears["手環"])
+        with g_co24:
             gear_inputs["戒指"] = st.text_input("戒指", value=default_gears["戒指"])
 
+        st.markdown("**第三組：擴充**")
+        g_co25, g_co26 g_co27= st.columns(3)
+        with g_co25:
+            gear_inputs["驅動器"] = st.text_input("驅動器", value=default_gears["驅動器"])
+        with g_co26:
+            gear_inputs["觀測儀"] = st.text_input("觀測儀", value=default_gears["觀測儀"])
+        with g_co27:
+            gear_inputs["偏轉器"] = st.text_input("偏轉器", value=default_gears["偏轉器"])
+        
         submit_button = st.form_submit_button(label=button_label, type="primary")
 
     if submit_button:
