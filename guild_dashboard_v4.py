@@ -168,7 +168,7 @@ if is_admin:
             gear_inputs["戒指"] = st.text_input("戒指", value=default_gears["戒指"])
 
         st.markdown("**第三組：擴充**")
-        g_co25, g_co26 g_co27= st.columns(3)
+        g_co25, g_co26, g_co27= st.columns(3)
         with g_co25:
             gear_inputs["驅動器"] = st.text_input("驅動器", value=default_gears["驅動器"])
         with g_co26:
