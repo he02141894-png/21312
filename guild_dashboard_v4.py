@@ -1,60 +1,57 @@
 import streamlit as st
 import pandas as pd
-import json
-import os
+from streamlit_gsheets import GSheetsConnection
 
 # 設定網頁標題與排版
-st.set_page_config(page_title="公會資訊管理系統 v15", page_icon="⚔️", layout="wide")
-
-DB_FILE = "guild_members_v8.json"
+st.set_page_config(page_title="公會資訊管理系統 v16", page_icon="⚔️", layout="wide")
 
 # ==========================================
-# 🔑 密碼隱藏安全機制
+# 🔑 密碼與雲端資料庫安全機制
 # ==========================================
 JOB_PASSWORD = st.secrets.get("job_password", "job123")      # 💡 職業維護專用密碼
 ADMIN_PASSWORD = st.secrets.get("admin_password", "admin123")  # 💡 最高幹部管理密碼
 
 # --- 定義遊戲職業選項 ---
-JOB_OPTIONS = [
-    "制裁者", "幻影神兵", "執行者", "操靈師", 
-    "無畏艦", "匠師", "仲裁者", "毀滅"
-]
+JOB_OPTIONS = ["制裁者", "幻影神兵", "執行者", "操靈師", "無畏艦", "匠師", "仲裁者", "毀滅"]
 
 # --- 精準定義 16 格裝備規格清單 ---
 GEAR_FIELDS = [
-"主武", "二武", "三武","頸部",
-"上身", "手臂", "下身","腿部",
-"頭冠", "耳環", "項鍊","手環",
-"戒指", "驅動器", "觀測儀","偏轉器"
+    "主武", "二武", "三武",  "頸部", "上身", "手臂", "下身", "腿部", 
+    "頭冠", "耳環", "項鍊", "手環", "戒指", "驅動器", "觀測儀"
 ]
 
-# --- 函式：讀取與儲存 JSON 資料 ---
-def load_data():
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    default_gears = {field: "無" for field in GEAR_FIELDS}
-    default_gears["主武"] = "究極終焉劍 +15"
-    default_gears["二武"] = "弒神之刃 +14"
-    default_gears["三武"] = "破空短刃 +10"
-    default_gears["四武"] = "元素副刃 +9"
-    default_gears["驅動器"] = "量子核心 Mk-III"
-    return [
-        {"角色名稱": "傲視群雄_X", "職業": ["制裁者", "毀滅"], "戰力": 1250000, "裝備": default_gears},
-        {"角色名稱": "影之刃_凱", "職業": ["幻影神兵"], "戰力": 1180000, "裝備": {field: "無" for field in GEAR_FIELDS}}
-    ]
+# 串接 Google Sheets 連線
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-def save_data(data):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-    # 💡【核心修正 1】：確保檔案寫入後，同步更新網頁記憶體，防止畫面不顯示
-    st.session_state.guild_list = data
+# --- 函式：讀取與儲存雲端資料 ---
+def load_data_from_sheet():
+    try:
+        # 從設定好的 Google 試算表讀取資料
+        df_sheet = conn.read(ttl="0")
+        # 清洗與確保必要的欄位格式
+        df_sheet["戰力"] = pd.to_numeric(df_sheet["戰力"], errors="coerce").fillna(0).astype(int)
+        return df_sheet.to_dict(orient="records")
+    except Exception as e:
+        # 若雲端目前沒資料，提供初始格式防錯
+        default_gears = {field: "無" for field in GEAR_FIELDS}
+        default_gears["主武"] = "究極終焉劍 +15"
+        init_data = [
+            {"角色名稱": "傲視群雄_X", "職業": "制裁者、毀滅", "戰力": 1250000, **default_gears},
+            {"角色名稱": "影之刃_凱", "職業": "幻影神兵", "戰力": 1180000, **{f: "無" for f in GEAR_FIELDS}}
+        ]
+        return init_data
 
-# 初始化 Session State
+def save_data_to_sheet(data_list):
+    df_save = pd.DataFrame(data_list)
+    # 將最新整理的資料覆寫回雲端 Google Sheets 檔案中
+    conn.update(data=df_save)
+    st.session_state.guild_list = data_list
+
+# 初始化網頁記憶體快取
 if "guild_list" not in st.session_state:
-    st.session_state.guild_list = load_data()
+    st.session_state.guild_list = load_data_from_sheet()
 
-st.title("⚔️ 公會資訊自動化管理系統 v15")
+st.title("⚔️ 公會資訊雲端管理系統 v16 (永久儲存防消失版)")
 
 # ==========================================
 # 🔐 權限控制中心
@@ -86,9 +83,8 @@ elif role_choice == "職業負責人 (僅限變更職業)":
 else:
     st.sidebar.info("ℹ️ 當前為「公開瀏覽模式」，前五名大佬的戰力已被單獨遮蔽。")
 
-
 # ==========================================
-# 📝 權限 A：最高幹部專屬區
+# 📝 權限 A：最高幹部專屬區 (全面新增與修改)
 # ==========================================
 if is_admin:
     st.subheader("📝 成員全面資料維護 (最高幹部專區)")
@@ -96,20 +92,14 @@ if is_admin:
     if "edit_index" not in st.session_state:
         st.session_state.edit_index = -1
 
-    if st.session_state.edit_index != -1:
+    if st.session_state.edit_index != -1 and st.session_state.edit_index < len(st.session_state.guild_list):
         current_item = st.session_state.guild_list[st.session_state.edit_index]
-        default_name = current_item["角色名稱"]
-        
-        raw_jobs = current_item.get("職業", [])
-        if isinstance(raw_jobs, str):
-            raw_jobs = [raw_jobs]
-        default_jobs = [j for j in raw_jobs if j in JOB_OPTIONS]
-        
-        default_power = int(current_item["戰力"])
-        saved_gears = current_item.get("裝備", {})
-        if isinstance(saved_gears, str):
-            saved_gears = {"主武": saved_gears}
-        default_gears = {field: saved_gears.get(field, "無") for field in GEAR_FIELDS}
+        default_name = current_item.get("角色名稱", "")
+        raw_jobs = current_item.get("職業", "")
+        # 解析儲存的字串為多選列表
+        default_jobs = [j.strip() for j in str(raw_jobs).split("、") if j.strip() in JOB_OPTIONS]
+        default_power = int(current_item.get("戰力", 0))
+        default_gears = {field: current_item.get(field, "無") for field in GEAR_FIELDS}
         button_label = "💾 儲存修改資訊"
     else:
         default_name = ""
@@ -118,7 +108,7 @@ if is_admin:
         default_gears = {field: "無" for field in GEAR_FIELDS}
         button_label = "➕ 新增公會成員"
 
-    with st.form(key="admin_member_form", clear_on_submit=True):
+    with st.form(key="admin_member_form_v16", clear_on_submit=True):
         st.markdown("##### 📌 基礎基本資訊")
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -176,7 +166,6 @@ if is_admin:
         with g_co27:
             gear_inputs["偏轉器"] = st.text_input("偏轉器", value=default_gears["偏轉器"])
 
-
         submit_button = st.form_submit_button(label=button_label, type="primary")
 
     if submit_button:
@@ -185,22 +174,20 @@ if is_admin:
         elif not jobs_input:
             st.error("❌ 請至少選擇一個職業！")
         else:
-            new_member = {
-                "角色名稱": name_input.strip(), 
-                "職業": jobs_input, 
-                "戰力": power_input, 
-                "裝備": gear_inputs
-            }
+            job_str = "、".join(jobs_input)
+            new_member = {"角色名稱": name_input.strip(), "職業": job_str, "戰力": power_input, **gear_inputs}
+            
+            current_list = load_data_from_sheet()
             if st.session_state.edit_index == -1:
-                st.session_state.guild_list.append(new_member)
-                st.toast(f"✅ 已成功新增成員：{name_input}")
+                current_list.append(new_member)
+                st.toast(f"✅ 已成功新增並同步雲端：{name_input}")
             else:
-                st.session_state.guild_list[st.session_state.edit_index] = new_member
-                st.toast(f"🔄 已成功更新成員：{name_input}")
+                if st.session_state.edit_index < len(current_list):
+                    current_list[st.session_state.edit_index] = new_member
+                st.toast(f"🔄 已成功更新雲端成員：{name_input}")
                 st.session_state.edit_index = -1
                 
-            # 💡【核心修正 2】：傳入當前最新清單，讓 save_data 同步刷新記憶體
-            save_data(st.session_state.guild_list)
+            save_data_to_sheet(current_list)
             st.rerun()
 
     if st.session_state.edit_index != -1:
@@ -213,21 +200,20 @@ if is_admin:
 # ==========================================
 elif is_job_updater:
     st.subheader("🛡️ 職業標籤即時更新 (職業負責人專區)")
-    st.caption("💡 提示：此模式下您可以修改【全公會所有人】的職業，但無法更動或看見前五名的戰力。")
+    st.caption("💡 提示：在此模式下您可以更新所有人的職業，但無法更動或看見前五名的戰力。")
     
-    member_names = [m["角色名稱"] for m in st.session_state.guild_list]
+    current_list = load_data_from_sheet()
+    member_names = [m["角色名稱"] for m in current_list]
     
     if member_names:
-        with st.form(key="job_only_form"):
+        with st.form(key="job_only_form_v16"):
             c_select, c_job = st.columns(2) 
             with c_select:
                 selected_name = st.selectbox("請選擇要更新職業的角色：", options=member_names)
             
-            target_idx = next(i for i, x in enumerate(st.session_state.guild_list) if x["角色名稱"] == selected_name)
-            raw_current_jobs = st.session_state.guild_list[target_idx].get("職業", [])
-            if isinstance(raw_current_jobs, str):
-                raw_current_jobs = [raw_current_jobs]
-            valid_current_jobs = [j for j in raw_current_jobs if j in JOB_OPTIONS]
+            target_idx = next(i for i, x in enumerate(current_list) if x["角色名稱"] == selected_name)
+            raw_current_jobs = current_list[target_idx].get("職業", "")
+            valid_current_jobs = [j.strip() for j in str(raw_current_jobs).split("、") if j.strip() in JOB_OPTIONS]
             
             with c_job:
                 updated_jobs = st.multiselect("重新設定該角色的職業 (可複選)：", options=JOB_OPTIONS, default=valid_current_jobs)
@@ -238,24 +224,25 @@ elif is_job_updater:
             if not updated_jobs:
                 st.error("❌ 角色至少需要保留一個職業！")
             else:
-                st.session_state.guild_list[target_idx]["職業"] = updated_jobs
-                save_data(st.session_state.guild_list)
-                st.success(f"✅ 成功更新【{selected_name}】的職業資訊！")
+                current_list[target_idx]["職業"] = "、".join(updated_jobs)
+                save_data_to_sheet(current_list)
+                st.success(f"✅ 成功將職業變更即時存入雲端！")
                 st.rerun()
-
 
 # ==========================================
 # 📊 核心排行榜
 # ==========================================
-st.subheader("📊 自動化整理：最新公會全裝備名單")
+st.subheader("📊 自動化整理：最新公會全裝備雲端名單")
 
-# 💡【核心修正 3】：每次排行榜載入前，再次確保從最新的記憶體快取中讀取資料
-if st.session_state.guild_list:
-    df = pd.DataFrame(st.session_state.guild_list)
+# 強制重新拉取雲端最真實的名單
+current_list = load_data_from_sheet()
+
+if current_list:
+    df = pd.DataFrame(current_list)
     df = df.sort_values(by="戰力", ascending=False).reset_index(drop=True)
     df["真實排名"] = df.index + 1
     
-    df["職業顯示"] = df["職業"].apply(lambda x: "、".join(x) if isinstance(x, list) else (x if pd.notna(x) else "未設定"))
+    df["職業顯示"] = df["職業"]
 
     # 🔒 戰力精準遮蔽前五名
     if not is_admin:
@@ -268,15 +255,20 @@ if st.session_state.guild_list:
         df["戰力(排名)"] = df.apply(lambda r: f"{int(r['戰力']):,} (#{r['真實排名']})", axis=1)
         df["排名顯示"] = df["真實排名"].astype(str)
 
-    # 展開 16 格裝備字典
-    for field in GEAR_FIELDS:
-        df[field] = df["裝備"].apply(lambda x: x.get(field, "無") if isinstance(x, dict) else "無")
-
     display_cols = ["排名顯示", "角色名稱", "職業顯示", "戰力(排名)"] + GEAR_FIELDS
     display_df = df[display_cols]
-    
-    rename_dict = {"排名顯示": "排名", "職業顯示": "職業", "戰力(排名)": "戰力(排名)"}
-    display_df = display_df.rename(columns=rename_dict)
+    display_df = display_df.rename(columns={"排名顯示": "排名", "職業顯示": "職業"})
     
     # 🔍 全體職業篩選器
     filter_job = st.selectbox("🔍 依職業篩選現有排行榜 (可選填)：", ["顯示全部職業"] + JOB_OPTIONS)
+    if filter_job != "顯示全部職業":
+        display_df = display_df[display_df["職業"].apply(lambda x: filter_job in str(x))].reset_index(drop=True)
+
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    
+    # ==========================================
+    # 🔧 快捷管理鍵 (僅幹部看見)
+    # ==========================================
+    if is_admin:
+        st.write("🔧 **最高幹部管理快捷鍵：**")
+        for idx, row in df.iterrows():
