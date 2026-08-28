@@ -4,7 +4,7 @@ import json
 import os
 
 # 設定網頁標題與排版
-st.set_page_config(page_title="公會資訊管理系統 v10", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="公會資訊管理系統 v9", page_icon="⚔️", layout="wide")
 
 DB_FILE = "guild_members_v3.json"
 
@@ -26,7 +26,7 @@ def load_data():
         with open(DB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return [
-   ]
+]
 
 def save_data(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
@@ -36,7 +36,7 @@ def save_data(data):
 if "guild_list" not in st.session_state:
     st.session_state.guild_list = load_data()
 
-st.title("⚔️ 公會資訊自動化管理系統 v10 (職權獨立防諜版)")
+st.title("⚔️ 公會資訊自動化管理系統 v9 (戰力單獨遮蔽版)")
 
 # ==========================================
 # 🔐 權限控制中心 (三階段身分切換)
@@ -134,13 +134,12 @@ if is_admin:
             st.rerun()
 
 # ==========================================
-# 📝 權限 B：職業負責人專屬區 (💡 核心更新：可更新所有人，但看不到前五名戰力)
+# 📝 權限 B：職業負責人專屬區 (💡 所有人皆可修改，但前五名只能改職業)
 # ==========================================
 elif is_job_updater:
     st.subheader("🛡️ 職業標籤即時更新 (職業負責人專區)")
-    st.caption("💡 提示：此模式下您可以修改【全公會所有人（包含前五名大老）】的職業，但依舊看不到前五名的戰力數字。")
+    st.caption("💡 提示：此模式下您可以修改【全公會所有人】的職業，但依舊看不到前五名的大佬戰力。")
     
-    # 這裡保留讀取全公會所有成員名單
     member_names = [m["角色名稱"] for m in st.session_state.guild_list]
     
     if member_names:
@@ -172,7 +171,7 @@ elif is_job_updater:
 
 
 # ==========================================
-# 📊 核心排行榜 (全體顯示，精準遮蔽前五名戰力數字)
+# 📊 核心排行榜（💡 核心更新：戰力單獨遮蔽邏輯）
 # ==========================================
 st.subheader("📊 自動化整理：最新公會名單")
 
@@ -185,9 +184,9 @@ if st.session_state.guild_list:
     # 2. 加工處理文字欄位
     df["職業顯示"] = df["職業"].apply(lambda x: "、".join(x) if isinstance(x, list) else (x if pd.notna(x) else "未設定"))
 
-    # 💡【核心防諜語法】：如果不是最高管理員（即一般成員模式、職業負責人模式），動態遮蔽前五名的戰力數字與排名
+    # 💡【核心防諜語法】：如果不是最高管理員，動態遮蔽前五名的戰力數字
     if not is_admin:
-        st.warning("🔒 戰力安全防護：目前權限下，系統已自動遮蔽公會前 5 名大佬的【戰力數字】與【真實排名】。")
+        st.warning("🔒 戰力防護機制：目前權限下，系統已自動遮蔽公會前 5 名大佬的【戰力數字】與【真實排名】。")
         
         # 建立一個新欄位處理戰力顯示：前 5 名顯示保密，後面顯示真實數字
         df["戰力(排名)"] = df.apply(
