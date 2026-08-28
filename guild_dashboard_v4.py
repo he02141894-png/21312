@@ -125,11 +125,11 @@ if is_admin:
         st.markdown("##### 🛡️ 16 格核心裝備細項面板")
         
         gear_inputs = {}
-        st.markdown("**主武 & 防具**")
+        st.markdown("**武器 & 防具**")
         g_col1, g_col2 = st.columns(2)
         with g_col1:
-            gear_inputs["主武器"] = st.text_input("主武器", value=default_gears["主武器"])
-            gear_inputs["副武器"] = st.text_input("副武器", value=default_gears["副武器"])
+            gear_inputs["主武"] = st.text_input("主武", value=default_gears["主武"])
+            gear_inputs["副武"] = st.text_input("副武", value=default_gears["副武"])
         with g_col2:
             gear_inputs["頸部"] = st.text_input("頸部", value=default_gears["頸部"])
             gear_inputs["上身"] = st.text_input("上身", value=default_gears["上身"])
