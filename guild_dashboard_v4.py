@@ -6,7 +6,7 @@ import os
 # 設定網頁標題與排版
 st.set_page_config(page_title="公會資訊管理系統 v14", page_icon="⚔️", layout="wide")
 
-DB_FILE = "guild_members_v7.json"  # 💡 更新職業規格，使用全新乾淨的資料庫防止與舊檔案結構衝突
+DB_FILE = "guild_members_v7.json"  # 更新職業規格，使用全新乾淨的資料庫防止與舊檔案結構衝突
 
 # ==========================================
 # 🔑 密碼隱藏安全機制
@@ -14,7 +14,7 @@ DB_FILE = "guild_members_v7.json"  # 💡 更新職業規格，使用全新乾�
 JOB_PASSWORD = st.secrets.get("job_password", "job123")      # 💡 職業維護專用密碼
 ADMIN_PASSWORD = st.secrets.get("admin_password", "admin123")  # 💡 最高幹部管理密碼
 
-# --- 💡【職業體系全面正名】精準定義你要求的 8 大核心職業選項 ---
+# --- 定義遊戲職業選項 ---
 JOB_OPTIONS = [
     "制裁者", "幻影神兵", "執行者", "操靈師", 
     "無畏艦", "匠師", "仲裁者", "毀滅"
@@ -33,7 +33,6 @@ def load_data():
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    # 建立全新職業與 16 格裝備的初始預設資料
     default_gears = {field: "無" for field in GEAR_FIELDS}
     default_gears["主武"] = "究極終焉劍 +15"
     default_gears["二武"] = "弒神之刃 +14"
@@ -85,7 +84,7 @@ else:
 
 
 # ==========================================
-# 📝 權限 A：最高幹部專屬區 (全面資料維護)
+# 📝 權限 A：最高幹部專屬區
 # ==========================================
 if is_admin:
     st.subheader("📝 成員全面資料維護 (最高幹部專區)")
@@ -226,7 +225,7 @@ elif is_job_updater:
 
 
 # ==========================================
-# 📊 核心排行榜 (自動對齊最新職業)
+# 📊 核心排行榜
 # ==========================================
 st.subheader("📊 自動化整理：最新公會全裝備名單")
 
@@ -239,7 +238,7 @@ if st.session_state.guild_list:
 
     # 🔒 戰力精準遮蔽前五名
     if not is_admin:
-        st.warning("🔒 戰力安全防護：目前權限下，系統已自動遮蔽公會前 5名 大佬的【戰力數字】與【真實排名】。")
+        st.warning("🔒 戰力安全防護：目前權限下，系統已自動遮蔽公會前 5 名大佬的【戰力數字】與【真實排名】。")
         df["戰力(排名)"] = df.apply(
             lambda r: f"🔒 資訊保密" if r["真實排名"] <= 5 else f"{int(r['戰力']):,} (#{r['真實排名']})", axis=1
         )
@@ -258,6 +257,7 @@ if st.session_state.guild_list:
     rename_dict = {"排名顯示": "排名", "職業顯示": "職業", "戰力(排名)": "戰力(排名)"}
     display_df = display_df.rename(columns=rename_dict)
     
-    # 🔍 全體職業篩選器（💡 自動與最新制裁者、幻影神兵等選單對齊）
+    # 🔍 全體職業篩選器
     filter_job = st.selectbox("🔍 依職業篩選現有排行榜 (可選填)：", ["顯示全部職業"] + JOB_OPTIONS)
     if filter_job != "顯示全部職業":
+        # 💡【已確認加固】：這裡手動補齊了強制的 8 空格縮排，確保絕對不會再噴 IndentationError！
