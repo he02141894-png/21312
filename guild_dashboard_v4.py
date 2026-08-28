@@ -265,10 +265,9 @@ if current_list:
 
     # 🔒 戰力精準遮蔽前五名
     
-if not is_admin:
-        st.warning("🔒 戰力安全防護：目前權限下，系統已自動遮蔽公會前 5 名大佬的【戰力數字】與【真實排名】。")
-        df["戰力(排名)"] = df.apply(
-            lambda r: f"🔒 資訊保密" if r["真實排名"] <= 5 else f"{int(r['戰力']):,} (#{r['真實排名']})", axis=1
-        )
-        df["排名顯示"] = df["真實排名"].apply(lambda x: "🎖️ 大佬" if x <= 5 else str(x))
-    else:
+    if is_admin:
+        st.write("🔧 **最高幹部管理快捷鍵：**")
+        for idx, row in df.iterrows():
+            # 💡 直接讓 for 迴圈正常跑完即可，後面不要接任何 else 區塊！
+            orig_idx = next(i for i, x in enumerate(st.session_state.guild_list) if x["角色名稱"] == row["角色名稱"])
+
