@@ -264,7 +264,8 @@ if current_list:
     df["職業顯示"] = df["職業"]
 
     # 🔒 戰力精準遮蔽前五名
-    if not is_admin:
+    
+if not is_admin:
         st.warning("🔒 戰力安全防護：目前權限下，系統已自動遮蔽公會前 5 名大佬的【戰力數字】與【真實排名】。")
         df["戰力(排名)"] = df.apply(
             lambda r: f"🔒 資訊保密" if r["真實排名"] <= 5 else f"{int(r['戰力']):,} (#{r['真實排名']})", axis=1
