@@ -23,7 +23,7 @@ JOB_OPTIONS = [
 # --- 定義 16 格裝備欄位 ---
 GEAR_FIELDS = [
 "主武", "副", 
-"頸部","上身","下身","腿部","護腿",
+"頸部","上身","手臂","腿部","護腿",
 "頭冠","耳環","項鍊","手環","戒指"
 "驅動器","觀測儀","偏轉器"
 ]
@@ -134,9 +134,9 @@ if is_admin:
         with g_col2:
             gear_inputs["頸部"] = st.text_input("頸部", value=default_gears["頸部"])
             gear_inputs["上身"] = st.text_input("上身", value=default_gears["上身"])
+            gear_inputs["手臂"] = st.text_input("手臂", value=default_gears["手臂"])
             gear_inputs["下身"] = st.text_input("下身", value=default_gears["下身"])
             gear_inputs["腿部"] = st.text_input("腿部", value=default_gears["腿部"])
-            gear_inputs["手臂"] = st.text_input("手臂", value=default_gears["手臂"])
             
         st.markdown("**飾品 & 擴充**")
         g_col5, g_col6 = st.columns(2)
