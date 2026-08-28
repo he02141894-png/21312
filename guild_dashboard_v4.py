@@ -4,10 +4,10 @@ import json
 import os
 
 # 設定網頁標題與排版
-st.set_page_config(page_title="公會資訊自動化整理系統", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="公會資訊自動化管理系統", page_icon="⚔️", layout="wide")
 
-# 💡 升級為乾淨的 v19 持久化資料庫，徹底洗掉跟舊快取衝突的髒資料
-LOCAL_DB = "guild_cloud_db_v19.json"
+# 💡 升級為全新的 v20 實體資料庫，徹底瓦解雲端伺服器上任何殘留的空白舊快取
+LOCAL_DB = "guild_cloud_db_v20.json"
 
 # ==========================================
 # 🔑 密碼權限隱藏安全機制
@@ -29,7 +29,7 @@ GEAR_FIELDS = [
 
 # --- 函式：讀取與儲存本地持久化資料 ---
 def load_data_from_storage():
-    # 💡 核心優化：每次強制讀取硬碟中最真實的檔案，防止被切換身分的快取洗掉名單
+    # 💡 核心安全策略：若伺服器上有維護過的新資料，優先讀取
     if os.path.exists(LOCAL_DB):
         try:
             with open(LOCAL_DB, "r", encoding="utf-8") as f:
@@ -39,7 +39,7 @@ def load_data_from_storage():
         except Exception:
             pass
 
-    # 若檔案不存在或損毀，自動建立完整的初始名單（保證名單絕對在畫面上）
+    # 💡【保底強制重生機制】：若無檔案，第一秒直接強制在硬碟與畫面上生成符合 17 格規格的精美名單
     default_gears = {field: "無" for field in GEAR_FIELDS}
     default_gears["主武"] = "究極終焉劍 +15"
     default_gears["二武"] = "弒神之刃 +14"
@@ -64,10 +64,9 @@ def load_data_from_storage():
 def save_data_to_storage(data_list):
     with open(LOCAL_DB, "w", encoding="utf-8") as f:
         json.dump(data_list, f, ensure_ascii=False, indent=4)
-    # 同步強制更新 Session 記憶體
     st.session_state.guild_list = data_list
 
-# 💡【雙重保險掛鉤】：每次網頁重整時，強迫去硬碟載入最新的真實數據，徹底杜絕資料人間蒸發
+# 💡【全頁面硬核同步】：打破 Streamlit 的 Session 空白死循環，開頁即強制讀取硬碟
 st.session_state.guild_list = load_data_from_storage()
 
 st.title("⚔️ 公會資訊自動化管理系統 (防消失防諜最終版)")
@@ -192,6 +191,11 @@ if is_admin:
             save_data_to_storage(current_list)
             st.rerun()
 
+    if st.session_state.edit_index != -1:
+        if st.button("❌ 取消修改"):
+            st.session_state.edit_index = -1
+            st.rerun()
+
 # ==========================================
 # 📝 權限 B：職業負責人專屬區
 # ==========================================
@@ -232,5 +236,3 @@ elif is_gear_updater:
         with st.form(key="gear_only_form_v18"):
             selected_name_gear = st.selectbox("請選擇要維護裝備的角色：", options=member_names)
             target_idx_gear = next(i for i, x in enumerate(current_list) if x["角色名稱"] == selected_name_gear)
-            current_member_gear = current_list[target_idx_gear]
-            
