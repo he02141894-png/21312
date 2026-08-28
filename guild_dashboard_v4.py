@@ -1,238 +1,160 @@
-import streamlit as st
-import pandas as pd
-import json
 import os
+import sqlite3
+from datetime import datetime
 
-# 設定網頁標題與排版
-st.set_page_config(page_title="公會資訊自動化管理系統", page_icon="⚔️", layout="wide")
 
-# 💡 升級為全新的 v20 實體資料庫，徹底瓦解雲端伺服器上任何殘留的空白舊快取
-LOCAL_DB = "guild_cloud_db_v20.json"
+class GuildDatabase:
 
-# ==========================================
-# 🔑 密碼權限隱藏安全機制
-# ==========================================
-JOB_PASSWORD = st.secrets.get("job_password", "job123")      
-GEAR_PASSWORD = st.secrets.get("gear_password", "gear123")    
-ADMIN_PASSWORD = st.secrets.get("admin_password", "admin123")  
+    def __init__(self, db_name="guild.db"):
+        """初始化資料庫連線並建立所需的資料表"""
+        self.db_name = db_name
+        self.conn = sqlite3.connect(self.db_name)
+        self.cursor = self.conn.cursor()
+        self._create_tables()
 
-# --- 定義遊戲職業選項 (客製化 8 大職業) ---
-JOB_OPTIONS = ["制裁者", "幻影神兵", "執行者", "操靈師", "無畏艦", "匠師", "仲裁者", "毀滅"]
+    def _create_tables(self):
+        """建立成員表與戰力歷史紀錄表"""
+        # 1. 成員主要資料表
+        self.cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS members (
+                player_id TEXT PRIMARY KEY,
+                player_name TEXT NOT NULL,
+                current_power INTEGER NOT NULL,
+                max_power INTEGER NOT NULL,
+                job_title TEXT DEFAULT '一般成員',
+                last_updated TEXT NOT NULL
+            )
+        """
+        )
 
-# --- 定義 17 格客製化裝備欄位清單 ---
-GEAR_FIELDS = [
-    "主武", "二武", "三武", "四武", 
-    "頸部", "上身", "手臂", "下身",
-    "腿部", "頭冠", "耳環", "項鍊", 
-    "手環", "戒指", "驅動器", "觀測儀", "偏轉器"
-]
+        # 2. 戰力變更歷史紀錄表 (方便追蹤誰在偷懶或爆發式成長)
+        self.cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS power_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id TEXT NOT NULL,
+                old_power INTEGER,
+                new_power INTEGER NOT NULL,
+                change_amount INTEGER NOT NULL,
+                update_time TEXT NOT NULL,
+                FOREIGN KEY (player_id) REFERENCES members (player_id)
+            )
+        """
+        )
+        self.conn.commit()
 
-# --- 函式：讀取與儲存本地持久化資料 ---
-def load_data_from_storage():
-    # 💡 核心安全策略：若伺服器上有維護過的新資料，優先讀取
-    if os.path.exists(LOCAL_DB):
+    def add_member(self, player_id, player_name, current_power, job_title="一般成員"):
+        """新增公會成員"""
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
-            with open(LOCAL_DB, "r", encoding="utf-8") as f:
-                content = json.load(f)
-                if isinstance(content, list) and len(content) > 0:
-                    return content
-        except Exception:
-            pass
+            self.cursor.execute(
+                """
+                INSERT INTO members (player_id, player_name, current_power, max_power, job_title, last_updated)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """,
+                (player_id, player_name, current_power, current_power, job_title, now),
+            )
+            self.conn.commit()
+            print(f"✅ 成功加入成員：[{job_title}] {player_name} (ID: {player_id})")
+        except sqlite3.IntegrityError:
+            print(f"❌ 錯誤：ID {player_id} 已經存在於公會中！")
 
-    # 💡【保底強制重生機制】：若無檔案，第一秒直接強制在硬碟與畫面上生成符合 17 格規格的精美名單
-    default_gears = {field: "無" for field in GEAR_FIELDS}
-    default_gears["主武"] = "究極終焉劍 +15"
-    default_gears["二武"] = "弒神之刃 +14"
-    default_gears["三武"] = "破空短刃 +10"
-    default_gears["四武"] = "元素副刃 +9"
-    default_gears["驅動器"] = "量子核心 Mk-III"
-    default_gears["偏轉器"] = "絕對防禦障壁"
-    
-    init_data = [
-        {"角色名稱": "傲視群雄_X", "職業": ["制裁者", "毀滅"], "戰力": 1250000, **default_gears},
-        {"角色名稱": "影之刃_凱", "職業": ["幻影神兵"], "戰力": 1180000, **{f: "無" for f in GEAR_FIELDS}},
-        {"角色名稱": "元素主宰_麗", "職業": ["操靈師"], "戰力": 1120000, **{f: "無" for f in GEAR_FIELDS}},
-        {"角色名稱": "聖光守護_明", "職業": ["仲裁者"], "戰力": 1050000, **{f: "無" for f in GEAR_FIELDS}},
-        {"角色名稱": "暗夜箭神_風", "職業": ["幻影神兵"], "戰力": 980000, **{f: "無" for f in GEAR_FIELDS}},
-        {"角色名稱": "無情流星", "職業": ["執行者"], "戰力": 850000, **{f: "無" for f in GEAR_FIELDS}},
-        {"角色名稱": "補血機器人", "職業": ["匠師"], "戰力": 720000, **{f: "無" for f in GEAR_FIELDS}}
-    ]
-    with open(LOCAL_DB, "w", encoding="utf-8") as f:
-        json.dump(init_data, f, ensure_ascii=False, indent=4)
-    return init_data
+    def update_power(self, player_id, new_power):
+        """更新成員戰力（核心功能：自動計算歷史最高、幅度並寫入歷史紀錄）"""
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def save_data_to_storage(data_list):
-    with open(LOCAL_DB, "w", encoding="utf-8") as f:
-        json.dump(data_list, f, ensure_ascii=False, indent=4)
-    st.session_state.guild_list = data_list
+        # 先查詢舊資料
+        self.cursor.execute(
+            "SELECT player_name, current_power, max_power FROM members WHERE player_id = ?",
+            (player_id,),
+        )
+        member = self.cursor.fetchone()
 
-# 💡【全頁面硬核同步】：打破 Streamlit 的 Session 空白死循環，開頁即強制讀取硬碟
-st.session_state.guild_list = load_data_from_storage()
+        if not member:
+            print(f"❌ 找不到 ID 為 {player_id} 的公會成員。")
+            return
 
-st.title("⚔️ 公會資訊自動化管理系統 (防消失防諜最終版)")
+        name, old_power, max_power = member
+        change_amount = new_power - old_power
+        updated_max_power = max(max_power, new_power)
 
-# ==========================================
-# 🔐 權限控制中心 (4 種身分切換)
-# ==========================================
-st.sidebar.title("🔐 身分與權限驗證")
-role_choice = st.sidebar.radio(
-    "請選擇您的存取權限：", 
-    ["一般成員 (僅限瀏覽)", "職業負責人 (僅限變更職業)", "裝備負責人 (僅限變更裝備)", "最高幹部 (擁有全部權限)"]
-)
+        # 更新主要資料表
+        self.cursor.execute(
+            """
+            UPDATE members 
+            SET current_power = ?, max_power = ?, last_updated = ?
+            WHERE player_id = ?
+        """,
+            (new_power, updated_max_power, now, player_id),
+        )
 
-is_admin = False
-is_job_updater = False
-is_gear_updater = False
+        # 寫入歷史紀錄紀錄
+        self.cursor.execute(
+            """
+            INSERT INTO power_history (player_id, old_power, new_power, change_amount, update_time)
+            VALUES (?, ?, ?, ?, ?)
+        """,
+            (player_id, old_power, new_power, change_amount, now),
+        )
 
-if role_choice == "最高幹部 (擁有全部權限)":
-    pwd = st.sidebar.text_input("請輸入最高管理密碼：", type="password", key="admin_pwd")
-    if pwd == ADMIN_PASSWORD:
-        st.sidebar.success("👑 最高權限已解鎖！")
-        is_admin = True
-    elif pwd != "":
-        st.sidebar.error("❌ 密碼錯誤！")
+        self.conn.commit()
 
-elif role_choice == "職業負責人 (僅限變更職業)":
-    pwd = st.sidebar.text_input("請輸入職業專用密碼：", type="password", key="job_pwd")
-    if pwd == JOB_PASSWORD:
-        st.sidebar.success("🛡️ 職業修改權限已解鎖！")
-        is_job_updater = True
-    elif pwd != "":
-        st.sidebar.error("❌ 密碼錯誤！")
+        # 輸出友善提示
+        trend = "🔺" if change_amount >= 0 else "🔻"
+        print(
+            f"🔄 戰力更新：{name} -> 當前戰力: {new_power} ({trend} {abs(change_amount)})"
+        )
+        if new_power > max_power:
+            print(f"✨ 恭喜！{name} 突破了歷史最高戰力！")
 
-elif role_choice == "裝備負責人 (僅限變更裝備)":
-    pwd = st.sidebar.text_input("請輸入裝備專用密碼：", type="password", key="gear_pwd")
-    if pwd == GEAR_PASSWORD:
-        st.sidebar.success("⚙️ 裝備維護權限已解鎖！")
-        is_gear_updater = True
-    elif pwd != "":
-        st.sidebar.error("❌ 密碼錯誤！")
-else:
-    st.sidebar.info("ℹ️ 當前為「公開瀏覽模式」，前五名大佬的戰力已被單獨遮蔽。")
+    def show_guild_report(self):
+        """顯示整體的公會成員名單與統計數據"""
+        self.cursor.execute(
+            "SELECT player_id, player_name, job_title, current_power, max_power FROM members ORDER BY current_power DESC"
+        )
+        rows = self.cursor.fetchall()
 
-# ==========================================
-# 📝 權限 A：最高幹部專屬區
-# ==========================================
-if is_admin:
-    st.subheader("📝 成員全面資料維護 (最高幹部專區)")
-    
-    if "edit_index" not in st.session_state:
-        st.session_state.edit_index = -1
+        if not rows:
+            print("📭 目前公會資料庫沒有任何成員。")
+            return
 
-    if st.session_state.edit_index != -1 and st.session_state.edit_index < len(st.session_state.guild_list):
-        current_item = st.session_state.guild_list[st.session_state.edit_index]
-        default_name = current_item.get("角色名稱", "")
-        raw_jobs = current_item.get("職業", [])
-        if isinstance(raw_jobs, str):
-            raw_jobs = [raw_jobs]
-        default_jobs = [j for j in raw_jobs if j in JOB_OPTIONS]
-        default_power = int(current_item.get("戰力", 0))
-        default_gears = {field: current_item.get(field, "無") for field in GEAR_FIELDS}
-        button_label = "💾 儲存修改資訊"
-    else:
-        default_name = ""
-        default_jobs = []
-        default_power = 0
-        default_gears = {field: "無" for field in GEAR_FIELDS}
-        button_label = "➕ 新增公會成員"
+        print("\n" + "=" * 50)
+        print(f"{'職位':<10}{'玩家名稱':<12}{'當前戰力':<10}{'歷史最高':<10}")
+        print("-" * 50)
+        total_power = 0
+        for row in rows:
+            print(f"[{row[2]}]{row[1]:<12}{row[3]:<14}{row[4]:<14}")
+            total_power += row[3]
+        print("-" * 50)
+        print(f"📊 公會總戰力：{total_power} | 總人數：{len(rows)} 人")
+        print("=" * 50)
 
-    with st.form(key="admin_member_form_v18", clear_on_submit=True):
-        st.markdown("##### 📌 基礎基本資訊")
-        col1, col2, col3 = st.columns(3)
-        with col1: name_input = st.text_input("角色名稱", value=default_name)
-        with col2: jobs_input = st.multiselect("職業選項 (可多選)", options=JOB_OPTIONS, default=default_jobs)
-        with col3: power_input = st.number_input("目前戰力", min_value=0, step=1000, value=default_power)
-        
-        st.write("---")
-        st.markdown("##### 🛡️ 17 格客製化核心裝備細項面板")
-        gear_inputs = {}
-        st.markdown("**第一組：四武器體系面板**")
-        g_col1, g_col2, g_col3, g_col4 = st.columns(4)
-        with g_col1: gear_inputs["主武"] = st.text_input("主武", value=default_gears["主武"])
-        with g_col2: gear_inputs["二武"] = st.text_input("二武", value=default_gears["二武"])
-        with g_col3: gear_inputs["三武"] = st.text_input("三武", value=default_gears["三武"])
-        with g_col4: gear_inputs["四武"] = st.text_input("四武", value=default_gears["四武"])
-            
-        st.markdown("**第二組：身體與飾品裝備**")
-        g_col5, g_col6, g_col7 = st.columns(3)
-        with g_col5:
-            gear_inputs["頸部"] = st.text_input("頸部", value=default_gears["頸部"])
-            gear_inputs["下身"] = st.text_input("下身", value=default_gears["下身"])
-            gear_inputs["耳環"] = st.text_input("耳環", value=default_gears["耳環"])
-            gear_inputs["戒指"] = st.text_input("戒指", value=default_gears["戒指"])
-        with g_col6:
-            gear_inputs["上身"] = st.text_input("上身", value=default_gears["上身"])
-            gear_inputs["腿部"] = st.text_input("腿部", value=default_gears["腿部"])
-            gear_inputs["項鍊"] = st.text_input("項鍊", value=default_gears["項鍊"])
-            gear_inputs["驅動器"] = st.text_input("驅動器", value=default_gears["驅動器"])
-        with g_col7:
-            gear_inputs["手臂"] = st.text_input("手臂", value=default_gears["手臂"])
-            gear_inputs["頭冠"] = st.text_input("頭冠", value=default_gears["頭冠"])
-            gear_inputs["手環"] = st.text_input("手環", value=default_gears["手環"])
-            gear_inputs["觀測儀"] = st.text_input("觀測儀", value=default_gears["觀測儀"])
-            gear_inputs["偏轉器"] = st.text_input("偏轉器", value=default_gears["偏轉器"])
+    def close(self):
+        """關閉資料庫連線"""
+        self.conn.close()
 
-        submit_button = st.form_submit_button(label=button_label, type="primary")
 
-    if submit_button:
-        if not name_input.strip(): st.error("❌ 角色名稱不能為空！")
-        elif not jobs_input: st.error("❌ 請至少選擇一個職業！")
-        else:
-            new_member = {"角色名稱": name_input.strip(), "職業": jobs_input, "戰力": power_input, **gear_inputs}
-            current_list = load_data_from_storage()
-            if st.session_state.edit_index == -1:
-                current_list.append(new_member)
-                st.toast(f"✅ 已成功新增成員：{name_input}")
-            else:
-                if st.session_state.edit_index < len(current_list):
-                    current_list[st.session_state.edit_index] = new_member
-                st.toast(f"🔄 已成功更新成員資料：{name_input}")
-                st.session_state.edit_index = -1
-            save_data_to_storage(current_list)
-            st.rerun()
+# ==================== 🛠️ 測試執行示範 ====================
+if __name__ == "__main__":
+    # 建立/讀取公會資料庫
+    guild = GuildDatabase()
 
-    if st.session_state.edit_index != -1:
-        if st.button("❌ 取消修改"):
-            st.session_state.edit_index = -1
-            st.rerun()
+    print("--- 1. 新增公會成員測試 ---")
+    guild.add_member("A01", "亞瑟王", 150000, "會長")
+    guild.add_member("A02", "梅林", 120000, "副會長")
+    guild.add_member("A03", "蘭斯洛特", 98000, "一般成員")
 
-# ==========================================
-# 📝 權限 B：職業負責人專屬區
-# ==========================================
-elif is_job_updater:
-    st.subheader("🛡️ 職業標籤即時更新 (職業負責人專區)")
-    current_list = load_data_from_storage()
-    member_names = [m["角色名稱"] for m in current_list]
-    
-    if member_names:
-        with st.form(key="job_only_form_v18"):
-            c_select, c_job = st.columns(2) 
-            with c_select: selected_name = st.selectbox("請選擇要更新職業的角色：", options=member_names)
-            target_idx = next(i for i, x in enumerate(current_list) if x["角色名稱"] == selected_name)
-            raw_current_jobs = current_list[target_idx].get("職業", [])
-            if isinstance(raw_current_jobs, str): raw_current_jobs = [raw_current_jobs]
-            valid_current_jobs = [j for j in raw_current_jobs if j in JOB_OPTIONS]
-            
-            with c_job: updated_jobs = st.multiselect("重新設定職業 (可複選)：", options=JOB_OPTIONS, default=valid_current_jobs)
-            job_submit = st.form_submit_button("💾 僅儲存職業變更", type="primary")
-            
-        if job_submit:
-            if not updated_jobs: st.error("❌ 角色至少需要保留一個職業！")
-            else:
-                current_list[target_idx]["職業"] = updated_jobs
-                save_data_to_storage(current_list)
-                st.success(f"✅ 成功將職業變更即時存入系統！")
-                st.rerun()
+    print("\n--- 2. 初始公會報表 ---")
+    guild.show_guild_report()
 
-# ==========================================
-# 📝 權限 C：裝備負責人專屬區
-# ==========================================
-elif is_gear_updater:
-    st.subheader("⚙️ 17 格裝備分項獨立更新 (裝備負責人專區)")
-    current_list = load_data_from_storage()
-    member_names = [m["角色名稱"] for m in current_list]
-    
-    if member_names:
-        with st.form(key="gear_only_form_v18"):
-            selected_name_gear = st.selectbox("請選擇要維護裝備的角色：", options=member_names)
-            target_idx_gear = next(i for i, x in enumerate(current_list) if x["角色名稱"] == selected_name_gear)
+    print("\n--- 3. 戰力更新測試 ---")
+    # 蘭斯洛特大幅變強（超越歷史最高）
+    guild.update_power("A03", 135000)
+    # 亞瑟王更換裝備暫時降低戰力
+    guild.update_power("A01", 148000)
+
+    print("\n--- 4. 更新後的公會報表 ---")
+    guild.show_guild_report()
+
+    guild.close()
