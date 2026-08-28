@@ -4,7 +4,7 @@ import json
 import os
 
 # 設定網頁標題與排版
-st.set_page_config(page_title="公會資訊管理系統 v8", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="公會資訊管理系統 v10", page_icon="⚔️", layout="wide")
 
 DB_FILE = "guild_members_v3.json"
 
@@ -26,7 +26,7 @@ def load_data():
         with open(DB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return [
-    ]
+   ]
 
 def save_data(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
@@ -36,7 +36,7 @@ def save_data(data):
 if "guild_list" not in st.session_state:
     st.session_state.guild_list = load_data()
 
-st.title("⚔️ 公會資訊自動化管理系統 v8 (最高規格防諜版)")
+st.title("⚔️ 公會資訊自動化管理系統 v10 (職權獨立防諜版)")
 
 # ==========================================
 # 🔐 權限控制中心 (三階段身分切換)
@@ -66,11 +66,11 @@ elif role_choice == "職業負責人 (僅限變更職業)":
     elif pwd != "":
         st.sidebar.error("❌ 密碼錯誤！")
 else:
-    st.sidebar.info("ℹ️ 當前為「公開瀏覽模式」，系統已完全隱藏戰力前五名成員的所有資訊。")
+    st.sidebar.info("ℹ️ 當前為「公開瀏覽模式」，前五名大佬的戰力已被單獨遮蔽。")
 
 
 # ==========================================
-# 📝 權限 A：最高幹部專屬區 (可以完整看到所有人並進行全面維護)
+# 📝 權限 A：最高幹部專屬區 (全面資料維護)
 # ==========================================
 if is_admin:
     st.subheader("📝 成員全面資料維護 (最高幹部專區)")
@@ -134,24 +134,14 @@ if is_admin:
             st.rerun()
 
 # ==========================================
-# 📝 權限 B：職業負責人專屬區 (💡 核心更新：此處也隱藏前五名)
+# 📝 權限 B：職業負責人專屬區 (💡 核心更新：可更新所有人，但看不到前五名戰力)
 # ==========================================
 elif is_job_updater:
     st.subheader("🛡️ 職業標籤即時更新 (職業負責人專區)")
-    st.caption("💡 安全提示：此模式下您僅能維護【第 6 名以後】成員的職業設定。前 5 名大佬已被系統強制封鎖。")
+    st.caption("💡 提示：此模式下您可以修改【全公會所有人（包含前五名大老）】的職業，但依舊看不到前五名的戰力數字。")
     
-    # 1. 抓取全局資料並依照戰力排序，找出前 5 名大佬的名單
-    full_df = pd.DataFrame(st.session_state.guild_list)
-    if not full_df.empty:
-        full_df = full_df.sort_values(by="戰力", ascending=False).reset_index(drop=True)
-        # 取得前 5 名大佬的角色名稱列表
-        top5_names = list(full_df.head(5)["角色名稱"])
-        
-        # 2. 過濾掉前 5 名，只讓職業負責人看見與修改基層成員
-        allowed_members = [m for m in st.session_state.guild_list if m["角色名稱"] not in top5_names]
-        member_names = [m["角色名稱"] for m in allowed_members]
-    else:
-        member_names = []
+    # 這裡保留讀取全公會所有成員名單
+    member_names = [m["角色名稱"] for m in st.session_state.guild_list]
     
     if member_names:
         with st.form(key="job_only_form"):
@@ -159,7 +149,6 @@ elif is_job_updater:
             with c_select:
                 selected_name = st.selectbox("請選擇要更新職業的角色：", options=member_names)
             
-            # 找到該角色在原始全局清單中的索引
             target_idx = next(i for i, x in enumerate(st.session_state.guild_list) if x["角色名稱"] == selected_name)
             
             raw_current_jobs = st.session_state.guild_list[target_idx].get("職業", [])
@@ -180,40 +169,48 @@ elif is_job_updater:
                 save_data(st.session_state.guild_list)
                 st.success(f"✅ 成功更新【{selected_name}】的職業資訊！")
                 st.rerun()
-    else:
-        st.info("目前系統內除前 5 名大佬外，無其餘成員資料可供修改。")
 
 
 # ==========================================
-# 📊 核心排行榜（全權限開放瀏覽，一般成員與職業負責人隱藏前五名）
+# 📊 核心排行榜 (全體顯示，精準遮蔽前五名戰力數字)
 # ==========================================
-st.subheader("📊 自動化整理：最新戰力排行榜")
+st.subheader("📊 自動化整理：最新公會名單")
 
 if st.session_state.guild_list:
+    # 1. 載入並進行全局戰力大到小排序
     df = pd.DataFrame(st.session_state.guild_list)
     df = df.sort_values(by="戰力", ascending=False).reset_index(drop=True)
     df["真實排名"] = df.index + 1
     
-    # 💡 如果不是最高管理員（代表是一般成員模式 或 職業負責人模式）
+    # 2. 加工處理文字欄位
+    df["職業顯示"] = df["職業"].apply(lambda x: "、".join(x) if isinstance(x, list) else (x if pd.notna(x) else "未設定"))
+
+    # 💡【核心防諜語法】：如果不是最高管理員（即一般成員模式、職業負責人模式），動態遮蔽前五名的戰力數字與排名
     if not is_admin:
-        # 從源頭把前五名斬斷，保障情報安全
-        df = df.iloc[5:].reset_index(drop=True)
-        st.warning("🔒 諜報防護：當前身分權限下，系統已完全屏蔽公會戰力前 5 名大佬的所有資訊（含職業與配裝）。")
-
-    if not df.empty:
-        df["戰力(排名)"] = df.apply(lambda r: f"{int(r['戰力']):,} (#{r['真實排名']})", axis=1)
-        df["職業顯示"] = df["職業"].apply(lambda x: "、".join(x) if isinstance(x, list) else (x if pd.notna(x) else "未設定"))
+        st.warning("🔒 戰力安全防護：目前權限下，系統已自動遮蔽公會前 5 名大佬的【戰力數字】與【真實排名】。")
         
-        display_df = df[["真實排名", "角色名稱", "職業顯示", "戰力(排名)", "裝備"]]
-        display_df.columns = ["排名", "角色名稱", "職業", "戰力(排名)", "裝備"]
-        
-        filter_job = st.selectbox("🔍 依職業篩選現有排行榜 (可選填)：", ["顯示全部職業"] + JOB_OPTIONS)
-        if filter_job != "顯示全部職業":
-            display_df = display_df[display_df["職業"].apply(lambda x: filter_job in x if isinstance(x, str) else False)].reset_index(drop=True)
-
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        # 建立一個新欄位處理戰力顯示：前 5 名顯示保密，後面顯示真實數字
+        df["戰力(排名)"] = df.apply(
+            lambda r: f"🔒 資訊保密" if r["真實排名"] <= 5 else f"{int(r['戰力']):,} (#{r['真實排名']})", 
+            axis=1
+        )
+        # 把前五名的排名改為文字標籤，防止被對手推算戰力區間
+        df["排名顯示"] = df["真實排名"].apply(lambda x: "🎖️ 大佬" if x <= 5 else str(x))
     else:
-        st.info("目前公會扣除前 5 名大佬後，暫無其餘成員資訊可供顯示。")
+        # 最高管理員可以看到真實數字
+        df["戰力(排名)"] = df.apply(lambda r: f"{int(r['戰力']):,} (#{r['真實排名']})", axis=1)
+        df["排名顯示"] = df["真實排名"].astype(str)
+
+    # 3. 欄位整合與呈現
+    display_df = df[["排名顯示", "角色名稱", "職業顯示", "戰力(排名)", "裝備"]]
+    display_df.columns = ["排名", "角色名稱", "職業", "戰力(排名)", "裝備"]
+    
+    # 4. 🔍 全體職業篩選器（此處可以查到所有人的職業，但大佬戰力依舊保密）
+    filter_job = st.selectbox("🔍 依職業篩選現有排行榜 (可選填)：", ["顯示全部職業"] + JOB_OPTIONS)
+    if filter_job != "顯示全部職業":
+        display_df = display_df[display_df["職業"].apply(lambda x: filter_job in x if isinstance(x, str) else False)].reset_index(drop=True)
+
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
     
     # ==========================================
     # 🔧 快捷管理鍵（僅限最高幹部顯示）
@@ -221,7 +218,7 @@ if st.session_state.guild_list:
     if is_admin:
         st.write("🔧 **最高幹部管理快捷鍵：**")
         for idx, row in df.iterrows():
-            orig_idx = next(i for i, x in enumerate(st.session_state.guild_list) if x["filename" if False else "角色名稱"] == row["角色名稱"])
+            orig_idx = next(i for i, x in enumerate(st.session_state.guild_list) if x["角色名稱"] == row["角色名稱"])
             
             c1, col_space, c2, c3 = st.columns(4) 
             with c1:
