@@ -4,7 +4,7 @@ import json
 import os
 
 # 設定網頁標題與排版
-st.set_page_config(page_title="公會資訊管理系統 v5", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="公會資訊管理系統 v6", page_icon="⚔️", layout="wide")
 
 DB_FILE = "guild_members_v3.json"
 
@@ -26,9 +26,7 @@ def load_data():
         with open(DB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return [
-        {"角色名稱": "傲視群雄_X", "職業": ["狂戰士", "魔劍士"], "戰力": 1250000, "裝備": "天神之翼 +15, 不滅聖劍 +15"},
-        {"角色名稱": "影之刃_凱", "職業": ["暗殺者"], "戰力": 1180000, "裝備": "弒神雙刃 +15, 夜幕皮甲 +14"}
-    ]
+]
 
 def save_data(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
@@ -38,7 +36,7 @@ def save_data(data):
 if "guild_list" not in st.session_state:
     st.session_state.guild_list = load_data()
 
-st.title("⚔️ 公會資訊自動化管理系統 v5 (職權分離安全版)")
+st.title("⚔️ 公會資訊自動化管理系統 v6 (戰力前五隱藏防諜版)")
 
 # ==========================================
 # 🔐 權限控制中心 (三階段身分切換)
@@ -68,7 +66,7 @@ elif role_choice == "職業負責人 (僅限變更職業)":
     elif pwd != "":
         st.sidebar.error("❌ 密碼錯誤！")
 else:
-    st.sidebar.info("ℹ️ 當前為「公開瀏覽模式」。")
+    st.sidebar.info("ℹ️ 當前為「公開瀏覽模式」，系統將自動隱藏戰力前五名成員。")
 
 
 # ==========================================
@@ -84,9 +82,8 @@ if is_admin:
         current_item = st.session_state.guild_list[st.session_state.edit_index]
         default_name = current_item["角色名稱"]
         
-        # 💡【防錯安全過濾】：確保預設職業一定存在於 JOB_OPTIONS 中
         raw_jobs = current_item.get("職業", [])
-        if isinstance(raw_jobs, str):  # 預防舊資料型態為字串
+        if isinstance(raw_jobs, str):
             raw_jobs = [raw_jobs]
         default_jobs = [j for j in raw_jobs if j in JOB_OPTIONS]
         
@@ -153,14 +150,12 @@ elif is_job_updater:
             
             target_idx = next(i for i, x in enumerate(st.session_state.guild_list) if x["角色名稱"] == selected_name)
             
-            # 💡【修正此處的報錯點】：將資料庫抓出的資料進行清洗，排除任何不在 JOB_OPTIONS 中的殘留舊值
             raw_current_jobs = st.session_state.guild_list[target_idx].get("職業", [])
             if isinstance(raw_current_jobs, str):
                 raw_current_jobs = [raw_current_jobs]
             valid_current_jobs = [j for j in raw_current_jobs if j in JOB_OPTIONS]
             
             with c_job:
-                # 傳入清洗過的 valid_current_jobs，保證百分之百不會報錯
                 updated_jobs = st.multiselect("重新設定該角色的職業 (可複選)：", options=JOB_OPTIONS, default=valid_current_jobs)
                 
             job_submit = st.form_submit_button("💾 僅儲存職業變更", type="primary")
@@ -178,27 +173,41 @@ elif is_job_updater:
 
 
 # ==========================================
-# 📊 核心排行榜（全權限開放瀏覽，內建職業篩選器）
+# 📊 核心排行榜（全權限開放瀏覽，一般成員隱藏前五名）
 # ==========================================
 st.subheader("📊 自動化整理：最新戰力排行榜")
 
 if st.session_state.guild_list:
+    # 1. 載入並進行全局戰力大到小排序
     df = pd.DataFrame(st.session_state.guild_list)
     df = df.sort_values(by="戰力", ascending=False).reset_index(drop=True)
-    df["排名"] = df.index + 1
     
-    filter_job = st.selectbox("🔍 依職業篩選排行榜 (可選填)：", ["顯示全部職業"] + JOB_OPTIONS)
-    if filter_job != "顯示全部職業":
-        df = df[df["職業"].apply(lambda x: filter_job in x if isinstance(x, list) else False)].reset_index(drop=True)
-        df["排名"] = df.index + 1
+    # 2. 生成真實的全局排名 (1, 2, 3...)
+    df["真實排名"] = df.index + 1
+    
+    # 💡【核心更新：戰力前五隱藏語法】
+    # 如果不是管理員，也不是職業更新員（代表是一般成員瀏覽）
+    if not is_admin and not is_job_updater:
+        # 使用 Pandas 切片功能，直接過濾掉前五筆資料 (索引 0~4)，只保留索引 5 之後的資料
+        df = df.iloc[5:].reset_index(drop=True)
+        st.warning("🔒 已啟動公會防諜機制：目前為公開瀏覽模式，系統已自動隱藏公會前 5 名大老的戰力與裝備配置。")
 
-    df["戰力(排名)"] = df.apply(lambda r: f"{int(r['戰力']):,} (#{r['排名']})", axis=1)
-    df["職業顯示"] = df["職業"].apply(lambda x: "、".join(x) if isinstance(x, list) else (x if pd.notna(x) else "未設定"))
-    
-    display_df = df[["排名", "角色名稱", "職業顯示", "戰力(排名)", "裝備"]]
-    display_df.columns = ["排名", "角色名稱", "職業", "戰力(排名)", "裝備"]
-    
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    if not df.empty:
+        # 3. 格式化欄位呈現
+        df["戰力(排名)"] = df.apply(lambda r: f"{int(r['戰力']):,} (#{r['真實排名']})", axis=1)
+        df["職業顯示"] = df["職業"].apply(lambda x: "、".join(x) if isinstance(x, list) else (x if pd.notna(x) else "未設定"))
+        
+        display_df = df[["真實排名", "角色名稱", "職業顯示", "戰力(排名)", "裝備"]]
+        display_df.columns = ["排名", "角色名稱", "職業", "戰力(排名)", "裝備"]
+        
+        # 4. 貼心小功能：開放所有人使用的「職業公開篩選器」
+        filter_job = st.selectbox("🔍 依職業篩選現有排行榜 (可選填)：", ["顯示全部職業"] + JOB_OPTIONS)
+        if filter_job != "顯示全部職業":
+            display_df = display_df[display_df["職業"].apply(lambda x: filter_job in x if isinstance(x, str) else False)].reset_index(drop=True)
+
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("目前公會扣除前 5 名大老後，暫無其餘成員資訊可供顯示。")
     
     # ==========================================
     # 🔧 快捷管理鍵（僅限最高幹部顯示）
@@ -210,17 +219,16 @@ if st.session_state.guild_list:
             
             c1, col_space, c2, c3 = st.columns(4) 
             with c1:
-                st.write(f"【#{row['排名']}】 **{row['角色名稱']}** ｜ 職業：`{row['職業顯示']}` ｜ (戰力: {int(row['戰力']):,})")
+                st.write(f"【#{row['真實排名']}】 **{row['角色名稱']}** ｜ 職業：`{row['職業顯示']}` ｜ (戰力: {int(row['戰力']):,})")
             with c2:
                 if st.button("✏️ 全面修改", key=f"edit_{orig_idx}"):
                     st.session_state.edit_index = orig_idx
                     st.rerun()
             with c3:
-                if f"del_{orig_idx}" not in st.session_state:
-                    if st.button("🗑️ 刪除成員", key=f"del_{orig_idx}"):
-                        del st.session_state.guild_list[orig_idx]
-                        save_data(st.session_state.guild_list)
-                        st.toast(f"🗑️ 已刪除成員資訊")
-                        st.rerun()
+                if st.button("🗑️ 刪除成員", key=f"del_{orig_idx}"):
+                    del st.session_state.guild_list[orig_idx]
+                    save_data(st.session_state.guild_list)
+                    st.toast(f"🗑️ 已刪除成員資訊")
+                    st.rerun()
 else:
     st.info("目前公會暫無成員資訊。")
