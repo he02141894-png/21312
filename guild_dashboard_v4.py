@@ -1,160 +1,107 @@
 import os
 import sqlite3
-from datetime import datetime
 
 
-class GuildDatabase:
+class GuildManager:
 
-    def __init__(self, db_name="guild.db"):
-        """初始化資料庫連線並建立所需的資料表"""
-        self.db_name = db_name
-        self.conn = sqlite3.connect(self.db_name)
+    def __init__(self, db_name="guild_simple.db"):
+        """連線並初始化資料庫"""
+        self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
-        self._create_tables()
-
-    def _create_tables(self):
-        """建立成員表與戰力歷史紀錄表"""
-        # 1. 成員主要資料表
         self.cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS members (
-                player_id TEXT PRIMARY KEY,
-                player_name TEXT NOT NULL,
-                current_power INTEGER NOT NULL,
-                max_power INTEGER NOT NULL,
-                job_title TEXT DEFAULT '一般成員',
-                last_updated TEXT NOT NULL
-            )
-        """
-        )
-
-        # 2. 戰力變更歷史紀錄表 (方便追蹤誰在偷懶或爆發式成長)
-        self.cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS power_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_id TEXT NOT NULL,
-                old_power INTEGER,
-                new_power INTEGER NOT NULL,
-                change_amount INTEGER NOT NULL,
-                update_time TEXT NOT NULL,
-                FOREIGN KEY (player_id) REFERENCES members (player_id)
+                name TEXT PRIMARY KEY,
+                power INTEGER NOT NULL
             )
         """
         )
         self.conn.commit()
 
-    def add_member(self, player_id, player_name, current_power, job_title="一般成員"):
-        """新增公會成員"""
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    def add_member(self, name, power):
+        """1. 新增資料"""
         try:
             self.cursor.execute(
-                """
-                INSERT INTO members (player_id, player_name, current_power, max_power, job_title, last_updated)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-                (player_id, player_name, current_power, current_power, job_title, now),
+                "INSERT INTO members (name, power) VALUES (?, ?)", (name, power)
             )
             self.conn.commit()
-            print(f"✅ 成功加入成員：[{job_title}] {player_name} (ID: {player_id})")
+            print(f"✅ 成功新增：{name} (戰力: {power})")
         except sqlite3.IntegrityError:
-            print(f"❌ 錯誤：ID {player_id} 已經存在於公會中！")
+            print(f"❌ 錯誤：成員【{name}】已存在，請使用更新功能。")
 
-    def update_power(self, player_id, new_power):
-        """更新成員戰力（核心功能：自動計算歷史最高、幅度並寫入歷史紀錄）"""
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        # 先查詢舊資料
+    def update_power(self, name, new_power):
+        """2. 戰力更新"""
         self.cursor.execute(
-            "SELECT player_name, current_power, max_power FROM members WHERE player_id = ?",
-            (player_id,),
+            "SELECT power FROM members WHERE name = ?", (name,)
         )
-        member = self.cursor.fetchone()
+        row = self.cursor.fetchone()
 
-        if not member:
-            print(f"❌ 找不到 ID 為 {player_id} 的公會成員。")
-            return
+        if row:
+            old_power = row[0]
+            diff = new_power - old_power
+            self.cursor.execute(
+                "UPDATE members SET power = ? WHERE name = ?", (new_power, name)
+            )
+            self.conn.commit()
+            trend = f"🔺+{diff}" if diff >= 0 else f"🔻{diff}"
+            print(f"🔄 戰力更新：{name} {old_power} ➡️ {new_power} ({trend})")
+        else:
+            print(f"❌ 找不到成員【{name}】，無法更新戰力。")
 
-        name, old_power, max_power = member
-        change_amount = new_power - old_power
-        updated_max_power = max(max_power, new_power)
-
-        # 更新主要資料表
+    def delete_member(self, name):
+        """3. 刪除資料"""
         self.cursor.execute(
-            """
-            UPDATE members 
-            SET current_power = ?, max_power = ?, last_updated = ?
-            WHERE player_id = ?
-        """,
-            (new_power, updated_max_power, now, player_id),
+            "SELECT name FROM members WHERE name = ?", (name,)
         )
+        if self.cursor.fetchone():
+            self.cursor.execute("DELETE FROM members WHERE name = ?", (name,))
+            self.conn.commit()
+            print(f"🗑️  成功刪除成員：{name}")
+        else:
+            print(f"❌ 找不到成員【{name}】，無法刪除。")
 
-        # 寫入歷史紀錄紀錄
-        self.cursor.execute(
-            """
-            INSERT INTO power_history (player_id, old_power, new_power, change_amount, update_time)
-            VALUES (?, ?, ?, ?, ?)
-        """,
-            (player_id, old_power, new_power, change_amount, now),
-        )
-
-        self.conn.commit()
-
-        # 輸出友善提示
-        trend = "🔺" if change_amount >= 0 else "🔻"
-        print(
-            f"🔄 戰力更新：{name} -> 當前戰力: {new_power} ({trend} {abs(change_amount)})"
-        )
-        if new_power > max_power:
-            print(f"✨ 恭喜！{name} 突破了歷史最高戰力！")
-
-    def show_guild_report(self):
-        """顯示整體的公會成員名單與統計數據"""
-        self.cursor.execute(
-            "SELECT player_id, player_name, job_title, current_power, max_power FROM members ORDER BY current_power DESC"
-        )
+    def show_all(self):
+        """4. 顯示所有資料（依戰力由高到低排序）"""
+        self.cursor.execute("SELECT name, power FROM members ORDER BY power DESC")
         rows = self.cursor.fetchall()
 
+        print("\n" + "═" * 30)
+        print(f"{'成員名稱':<12}{'當前戰力':<10}")
+        print("─" * 30)
         if not rows:
-            print("📭 目前公會資料庫沒有任何成員。")
-            return
-
-        print("\n" + "=" * 50)
-        print(f"{'職位':<10}{'玩家名稱':<12}{'當前戰力':<10}{'歷史最高':<10}")
-        print("-" * 50)
-        total_power = 0
+            print(" 📭 目前公會空無一人。")
         for row in rows:
-            print(f"[{row[2]}]{row[1]:<12}{row[3]:<14}{row[4]:<14}")
-            total_power += row[3]
-        print("-" * 50)
-        print(f"📊 公會總戰力：{total_power} | 總人數：{len(rows)} 人")
-        print("=" * 50)
+            # 修正中文字元排版寬度
+            pad = 14 - (len(row[0].encode("big5")) - len(row[0]))
+            print(f"{row[0]:<{pad}}{row[1]:<10,}")
+        print("═" * 30 + "\n")
 
     def close(self):
-        """關閉資料庫連線"""
         self.conn.close()
 
 
-# ==================== 🛠️ 測試執行示範 ====================
+# ==================== 🛠️ 模擬公會操作流程 ====================
 if __name__ == "__main__":
-    # 建立/讀取公會資料庫
-    guild = GuildDatabase()
+    # 清理舊檔案確保測試乾淨
+    if os.path.exists("guild_simple.db"):
+        os.remove("guild_simple.db")
 
-    print("--- 1. 新增公會成員測試 ---")
-    guild.add_member("A01", "亞瑟王", 150000, "會長")
-    guild.add_member("A02", "梅林", 120000, "副會長")
-    guild.add_member("A03", "蘭斯洛特", 98000, "一般成員")
+    guild = GuildManager()
 
-    print("\n--- 2. 初始公會報表 ---")
-    guild.show_guild_report()
+    print("--- 📌 測試 1：新增資料 ---")
+    guild.add_member("亞瑟王", 150000)
+    guild.add_member("梅林", 120000)
+    guild.add_member("蘭斯洛特", 98000)
+    guild.show_all()
 
-    print("\n--- 3. 戰力更新測試 ---")
-    # 蘭斯洛特大幅變強（超越歷史最高）
-    guild.update_power("A03", 135000)
-    # 亞瑟王更換裝備暫時降低戰力
-    guild.update_power("A01", 148000)
+    print("--- 📌 測試 2：戰力更新 ---")
+    guild.update_power("蘭斯洛特", 135000)  # 戰力上升
+    guild.update_power("亞瑟王", 148000)  # 戰力下降
+    guild.show_all()
 
-    print("\n--- 4. 更新後的公會報表 ---")
-    guild.show_guild_report()
+    print("--- 📌 測試 3：刪除資料 ---")
+    guild.delete_member("梅林")  # 刪除已存在的成員
+    guild.delete_member("不存在的玩家")  # 刪除測試
+    guild.show_all()
 
     guild.close()
