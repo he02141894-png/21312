@@ -4,9 +4,9 @@ import json
 import os
 
 # 設定網頁標題與排版
-st.set_page_config(page_title="公會資訊管理系統 v14", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="公會資訊管理系統 v15", page_icon="⚔️", layout="wide")
 
-DB_FILE = "guild_members_v7.json"  # 💡 更新職業規格，使用全新乾淨的資料庫防止與舊檔案結構衝突
+DB_FILE = "guild_members_v8.json"
 
 # ==========================================
 # 🔑 密碼隱藏安全機制
@@ -14,19 +14,18 @@ DB_FILE = "guild_members_v7.json"  # 💡 更新職業規格，使用全新乾�
 JOB_PASSWORD = st.secrets.get("job_password", "job123")      # 💡 職業維護專用密碼
 ADMIN_PASSWORD = st.secrets.get("admin_password", "admin123")  # 💡 最高幹部管理密碼
 
-# --- 💡【職業體系全面正名】精準定義你要求的 8 大核心職業選項 ---
+# --- 定義遊戲職業選項 ---
 JOB_OPTIONS = [
     "制裁者", "幻影神兵", "執行者", "操靈師", 
     "無畏艦", "匠師", "仲裁者", "毀滅"
 ]
 
-# --- 定義 16 格裝備欄位 ---
+# --- 精準定義 16 格裝備規格清單 ---
 GEAR_FIELDS = [
-    "主武", "二武", "三武", "四武", 
-    "頸部", "上身", "手臂", "下身", 
-    "腿部", "頭冠", "耳環", "項鍊", 
-    "手環","戒指", "驅動器", "觀測儀", 
-    "偏轉器"
+    "主武", "二武", "三武",
+    "頸部", "上身", "手臂", "下身",
+    "腿部", "頭冠", "耳環", "項鍊",
+    "手環", "戒指", "驅動器", "觀測儀"
 ]
 
 # --- 函式：讀取與儲存 JSON 資料 ---
@@ -34,10 +33,11 @@ def load_data():
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    # 建立全新職業與 16 格裝備的初始預設資料
     default_gears = {field: "無" for field in GEAR_FIELDS}
     default_gears["主武"] = "究極終焉劍 +15"
     default_gears["二武"] = "弒神之刃 +14"
+    default_gears["三武"] = "破空短刃 +10"
+    default_gears["四武"] = "元素副刃 +9"
     default_gears["驅動器"] = "量子核心 Mk-III"
     return [
         {"角色名稱": "傲視群雄_X", "職業": ["制裁者", "毀滅"], "戰力": 1250000, "裝備": default_gears},
@@ -47,15 +47,17 @@ def load_data():
 def save_data(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+    # 💡【核心修正 1】：確保檔案寫入後，同步更新網頁記憶體，防止畫面不顯示
+    st.session_state.guild_list = data
 
 # 初始化 Session State
 if "guild_list" not in st.session_state:
     st.session_state.guild_list = load_data()
 
-st.title("⚔️ 公會資訊自動化管理系統 v14 (全新八大職業正名版)")
+st.title("⚔️ 公會資訊自動化管理系統 v15")
 
 # ==========================================
-# 🔐 權限控制中心 (三階段身分切換)
+# 🔐 權限控制中心
 # ==========================================
 st.sidebar.title("🔐 身分與權限驗證")
 role_choice = st.sidebar.radio(
@@ -86,7 +88,7 @@ else:
 
 
 # ==========================================
-# 📝 權限 A：最高幹部專屬區 (全面資料維護)
+# 📝 權限 A：最高幹部專屬區
 # ==========================================
 if is_admin:
     st.subheader("📝 成員全面資料維護 (最高幹部專區)")
@@ -127,19 +129,17 @@ if is_admin:
             power_input = st.number_input("目前戰力", min_value=0, step=1000, value=default_power)
         
         st.write("---")
-        st.markdown("##### 🛡️ 16 格核心裝備細項面板")
+        st.markdown("##### 🛡️ 16 格新制核心裝備細項面板")
         
         gear_inputs = {}
         st.markdown("**第一組：武器**")
-        g_col1, g_col2, g_col3, g_col4 = st.columns(4)
+        g_col1, g_col2, g_col3,  = st.columns(3)
         with g_col1:
             gear_inputs["主武"] = st.text_input("主武", value=default_gears["主武"])
         with g_col2:
             gear_inputs["二武"] = st.text_input("二武", value=default_gears["二武"])
         with g_col3:
             gear_inputs["三武"] = st.text_input("三武", value=default_gears["三武"])
-        with g_col4:
-            gear_inputs["四武"] = st.text_input("四武", value=default_gears["四武"])
 
         st.markdown("**第二組：防具**")
         g_col5, g_col6, g_col7, g_col8, g_col9 = st.columns(5)
@@ -167,7 +167,7 @@ if is_admin:
         with g_co24:
             gear_inputs["戒指"] = st.text_input("戒指", value=default_gears["戒指"])
 
-        st.markdown("**第三組：擴充**")
+        st.markdown("**第四組：擴充**")
         g_co25, g_co26, g_co27= st.columns(3)
         with g_co25:
             gear_inputs["驅動器"] = st.text_input("驅動器", value=default_gears["驅動器"])
@@ -175,7 +175,8 @@ if is_admin:
             gear_inputs["觀測儀"] = st.text_input("觀測儀", value=default_gears["觀測儀"])
         with g_co27:
             gear_inputs["偏轉器"] = st.text_input("偏轉器", value=default_gears["偏轉器"])
-        
+
+
         submit_button = st.form_submit_button(label=button_label, type="primary")
 
     if submit_button:
@@ -198,6 +199,7 @@ if is_admin:
                 st.toast(f"🔄 已成功更新成員：{name_input}")
                 st.session_state.edit_index = -1
                 
+            # 💡【核心修正 2】：傳入當前最新清單，讓 save_data 同步刷新記憶體
             save_data(st.session_state.guild_list)
             st.rerun()
 
@@ -243,10 +245,11 @@ elif is_job_updater:
 
 
 # ==========================================
-# 📊 核心排行榜 (自動對齊最新職業)
+# 📊 核心排行榜
 # ==========================================
 st.subheader("📊 自動化整理：最新公會全裝備名單")
 
+# 💡【核心修正 3】：每次排行榜載入前，再次確保從最新的記憶體快取中讀取資料
 if st.session_state.guild_list:
     df = pd.DataFrame(st.session_state.guild_list)
     df = df.sort_values(by="戰力", ascending=False).reset_index(drop=True)
@@ -256,7 +259,7 @@ if st.session_state.guild_list:
 
     # 🔒 戰力精準遮蔽前五名
     if not is_admin:
-        st.warning("🔒 戰力安全防護：目前權限下，系統已自動遮蔽公會前 5名 大佬的【戰力數字】與【真實排名】。")
+        st.warning("🔒 戰力安全防護：目前權限下，系統已自動遮蔽公會前 5 名大佬的【戰力數字】與【真實排名】。")
         df["戰力(排名)"] = df.apply(
             lambda r: f"🔒 資訊保密" if r["真實排名"] <= 5 else f"{int(r['戰力']):,} (#{r['真實排名']})", axis=1
         )
@@ -275,9 +278,5 @@ if st.session_state.guild_list:
     rename_dict = {"排名顯示": "排名", "職業顯示": "職業", "戰力(排名)": "戰力(排名)"}
     display_df = display_df.rename(columns=rename_dict)
     
-    # 🔍 全體職業篩選器（💡 自動與最新制裁者、幻影神兵等選單對齊）
-filter_job = st.selectbox("🔍 依職業篩選現有排行榜 (可選填)：", ["顯示全部職業"] + JOB_OPTIONS)
-if filter_job != "顯示全部職業":
-    # 💡 請在這一行的最前面，手動補上 4 個英文空格（或者刪掉原本的空白，按一下 Tab 鍵）！
-    display_df = display_df[display_df["職業"].apply(lambda x: filter_job in x if isinstance(x, str) else False)].reset_index(drop=True)
-
+    # 🔍 全體職業篩選器
+    filter_job = st.selectbox("🔍 依職業篩選現有排行榜 (可選填)：", ["顯示全部職業"] + JOB_OPTIONS)
