@@ -5,6 +5,8 @@ from streamlit_gsheets import GSheetsConnection
 # 設定網頁標題與排版
 st.set_page_config(page_title="公會資訊管理系統 v16", page_icon="⚔️", layout="wide")
 
+DB_FILE = "guild_members_v8.json"
+
 # ==========================================
 # 🔑 密碼與雲端資料庫安全機制
 # ==========================================
@@ -26,15 +28,16 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # --- 函式：讀取與儲存雲端資料 ---
 def load_data_from_sheet():
     try:
-        # 從設定好的 Google 試算表讀取資料
         df_sheet = conn.read(ttl="0")
-        # 清洗與確保必要的欄位格式
         df_sheet["戰力"] = pd.to_numeric(df_sheet["戰力"], errors="coerce").fillna(0).astype(int)
         return df_sheet.to_dict(orient="records")
     except Exception as e:
-        # 若雲端目前沒資料，提供初始格式防錯
         default_gears = {field: "無" for field in GEAR_FIELDS}
         default_gears["主武"] = "究極終焉劍 +15"
+        default_gears["二武"] = "弒神之刃 +14"
+        default_gears["三武"] = "破空短刃 +10"
+        default_gears["四武"] = "元素副刃 +9"
+        default_gears["驅動器"] = "量子核心 Mk-III"
         init_data = [
             {"角色名稱": "傲視群雄_X", "職業": "制裁者、毀滅", "戰力": 1250000, **default_gears},
             {"角色名稱": "影之刃_凱", "職業": "幻影神兵", "戰力": 1180000, **{f: "無" for f in GEAR_FIELDS}}
@@ -43,7 +46,6 @@ def load_data_from_sheet():
 
 def save_data_to_sheet(data_list):
     df_save = pd.DataFrame(data_list)
-    # 將最新整理的資料覆寫回雲端 Google Sheets 檔案中
     conn.update(data=df_save)
     st.session_state.guild_list = data_list
 
@@ -96,7 +98,6 @@ if is_admin:
         current_item = st.session_state.guild_list[st.session_state.edit_index]
         default_name = current_item.get("角色名稱", "")
         raw_jobs = current_item.get("職業", "")
-        # 解析儲存的字串為多選列表
         default_jobs = [j.strip() for j in str(raw_jobs).split("、") if j.strip() in JOB_OPTIONS]
         default_power = int(current_item.get("戰力", 0))
         default_gears = {field: current_item.get(field, "無") for field in GEAR_FIELDS}
@@ -181,7 +182,7 @@ if is_admin:
 # ==========================================
 elif is_job_updater:
     st.subheader("🛡️ 職業標籤即時更新 (職業負責人專區)")
-    st.caption("💡 提示：在此模式下您可以更新所有人的職業，但無法更動或看見前五名的戰力。")
+    st.caption("💡 提示：此模式下您可以更新所有人的職業，但無法更動或看見前五名的戰力。")
     
     current_list = load_data_from_sheet()
     member_names = [m["角色名稱"] for m in current_list]
@@ -215,7 +216,6 @@ elif is_job_updater:
 # ==========================================
 st.subheader("📊 自動化整理：最新公會全裝備雲端名單")
 
-# 強制重新拉取雲端最真實的名單
 current_list = load_data_from_sheet()
 
 if current_list:
@@ -248,11 +248,7 @@ if current_list:
     st.dataframe(display_df, use_container_width=True, hide_index=True)
     
     # ==========================================
-    # 🔧 快捷管理鍵 (僅幹部看見)
+    # 🔧 快捷管理鍵
     # ==========================================
     if is_admin:
-    st.write("🔧 **最高幹部管理快捷鍵：**")
-    for idx, row in df.iterrows():
-        # 💡 在 for 迴圈之下的「每一行」，最前面都必須再多加上 4 個英文空格（或 1 個 Tab）！
-        orig_idx = next(i for i, x in enumerate(st.session_state.guild_list) if x["角色名稱"] == row["角色名稱"])
-        c1, col_space, c2, c3 = st.columns(4) 
+        st.write("🔧 **最高幹部管理快捷鍵：**")
