@@ -4,7 +4,7 @@ import json
 import os
 
 # 設定網頁標題與排版
-st.set_page_config(page_title="公會資訊管理系統 v6", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="公會資訊管理系統 v7", page_icon="⚔️", layout="wide")
 
 DB_FILE = "guild_members_v3.json"
 
@@ -36,7 +36,7 @@ def save_data(data):
 if "guild_list" not in st.session_state:
     st.session_state.guild_list = load_data()
 
-st.title("⚔️ 公會資訊自動化管理系統 v6 (戰力前五隱藏防諜版)")
+st.title("⚔️ 公會資訊自動化管理系統 v7 (全資訊前五隱藏防諜版)")
 
 # ==========================================
 # 🔐 權限控制中心 (三階段身分切換)
@@ -66,7 +66,7 @@ elif role_choice == "職業負責人 (僅限變更職業)":
     elif pwd != "":
         st.sidebar.error("❌ 密碼錯誤！")
 else:
-    st.sidebar.info("ℹ️ 當前為「公開瀏覽模式」，系統將自動隱藏戰力前五名成員。")
+    st.sidebar.info("ℹ️ 當前為「公開瀏覽模式」，系統已完全隱藏戰力前五名成員的所有資訊（含職業與裝備）。")
 
 
 # ==========================================
@@ -173,7 +173,7 @@ elif is_job_updater:
 
 
 # ==========================================
-# 📊 核心排行榜（全權限開放瀏覽，一般成員隱藏前五名）
+# 📊 核心排行榜（全權限開放瀏覽，全功能隱藏前五名）
 # ==========================================
 st.subheader("📊 自動化整理：最新戰力排行榜")
 
@@ -185,12 +185,11 @@ if st.session_state.guild_list:
     # 2. 生成真實的全局排名 (1, 2, 3...)
     df["真實排名"] = df.index + 1
     
-    # 💡【核心更新：戰力前五隱藏語法】
-    # 如果不是管理員，也不是職業更新員（代表是一般成員瀏覽）
+    # 💡【核心更新：戰力、職業、配裝前五名完全隱藏】
     if not is_admin and not is_job_updater:
-        # 使用 Pandas 切片功能，直接過濾掉前五筆資料 (索引 0~4)，只保留索引 5 之後的資料
+        # ⚠️ 在進行任何篩選與加工前，搶先用 iloc 直接把前五名斬斷，從源頭抹除大老蹤跡
         df = df.iloc[5:].reset_index(drop=True)
-        st.warning("🔒 已啟動公會防諜機制：目前為公開瀏覽模式，系統已自動隱藏公會前 5 名大老的戰力與裝備配置。")
+        st.warning("🔒 諜報防護升級：目前為公開瀏覽模式，系統已從源頭完全屏蔽公會戰力前 5 名大老的所有戰力、裝備與【職業配置】資訊。")
 
     if not df.empty:
         # 3. 格式化欄位呈現
@@ -200,9 +199,10 @@ if st.session_state.guild_list:
         display_df = df[["真實排名", "角色名稱", "職業顯示", "戰力(排名)", "裝備"]]
         display_df.columns = ["排名", "角色名稱", "職業", "戰力(排名)", "裝備"]
         
-        # 4. 貼心小功能：開放所有人使用的「職業公開篩選器」
+        # 4. 🔍 職業公開篩選器（此時的選單只會針對「第 6 名以後的成員」進行運作，前 5 名絕不會混入）
         filter_job = st.selectbox("🔍 依職業篩選現有排行榜 (可選填)：", ["顯示全部職業"] + JOB_OPTIONS)
         if filter_job != "顯示全部職業":
+            # 修正 Bug：確保對 display_df 的「職業」文字進行篩選
             display_df = display_df[display_df["職業"].apply(lambda x: filter_job in x if isinstance(x, str) else False)].reset_index(drop=True)
 
         st.dataframe(display_df, use_container_width=True, hide_index=True)
