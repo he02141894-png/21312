@@ -6,15 +6,15 @@ import os
 # 設定網頁標題與排版
 st.set_page_config(page_title="公會資訊自動化管理系統", page_icon="⚔️", layout="wide")
 
-# 獨立本地持久化資料庫，保障新增/修改/刪除永久儲存不消失
-LOCAL_DB = "guild_cloud_db.json"
+# 💡 更換全新的資料庫檔名，徹底洗掉跟舊版本衝突的格式殘留
+LOCAL_DB = "guild_cloud_db_v18.json"
 
 # ==========================================
-# 🔑 密碼權限隱藏安全機制 (從系統保險箱中讀取)
+# 🔑 密碼權限隱藏安全機制
 # ==========================================
-JOB_PASSWORD = st.secrets.get("job_password", "job123")      # 🛡️ 職業負責人專用密碼
-GEAR_PASSWORD = st.secrets.get("gear_password", "gear123")    # ⚙️ 裝備負責人專用密碼 (全新加入)
-ADMIN_PASSWORD = st.secrets.get("admin_password", "admin123")  # 👑 最高幹部管理密碼
+JOB_PASSWORD = st.secrets.get("job_password", "job123")      
+GEAR_PASSWORD = st.secrets.get("gear_password", "gear123")    
+ADMIN_PASSWORD = st.secrets.get("admin_password", "admin123")  
 
 # --- 定義遊戲職業選項 (客製化 8 大職業) ---
 JOB_OPTIONS = ["制裁者", "幻影神兵", "執行者", "操靈師", "無畏艦", "匠師", "仲裁者", "毀滅"]
@@ -32,11 +32,13 @@ def load_data_from_storage():
     if os.path.exists(LOCAL_DB):
         try:
             with open(LOCAL_DB, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if len(data) > 0:  # 確保裡面真的有成員資料
+                    return data
         except Exception:
             pass
 
-    # 若為初次運行，自動生成保底的初始名單
+    # 💡【保底強制機制】：如果檔案不存在或讀取失敗，強制生成完美對齊的初始名單
     default_gears = {field: "無" for field in GEAR_FIELDS}
     default_gears["主武"] = "究極終焉劍 +15"
     default_gears["二武"] = "弒神之刃 +14"
@@ -64,13 +66,13 @@ def save_data_to_storage(data_list):
     st.session_state.guild_list = data_list
 
 # 初始化網頁記憶體快取
-if "guild_list" not in st.session_state:
+if "guild_list" not in st.session_state or not st.session_state.guild_list:
     st.session_state.guild_list = load_data_from_storage()
 
-st.title("⚔️ 公會資訊自動化整理與管理系統 (職權階層版)")
+st.title("⚔️ 公會資訊自動化管理系統 (職權階層完全體)")
 
 # ==========================================
-# 🔐 權限控制中心 (升級為 4 種身分切換)
+# 🔐 權限控制中心 (4 種身分切換)
 # ==========================================
 st.sidebar.title("🔐 身分與權限驗證")
 role_choice = st.sidebar.radio(
@@ -109,7 +111,7 @@ else:
     st.sidebar.info("ℹ️ 當前為「公開瀏覽模式」，前五名大佬的戰力已被單獨遮蔽。")
 
 # ==========================================
-# 📝 權限 A：最高幹部專屬區 (全面新增與修改)
+# 📝 權限 A：最高幹部專屬區
 # ==========================================
 if is_admin:
     st.subheader("📝 成員全面資料維護 (最高幹部專區)")
@@ -190,7 +192,7 @@ if is_admin:
             st.rerun()
 
 # ==========================================
-# 📝 權限 B：職業負責人專屬區 (僅能變更職業)
+# 📝 權限 B：職業負責人專屬區
 # ==========================================
 elif is_job_updater:
     st.subheader("🛡️ 職業標籤即時更新 (職業負責人專區)")
@@ -218,11 +220,10 @@ elif is_job_updater:
                 st.rerun()
 
 # ==========================================
-# 📝 權限 C：⚙️ 裝備負責人專屬區 (💡 全新功能：單獨變更裝備)
+# 📝 權限 C：裝備負責人專屬區
 # ==========================================
 elif is_gear_updater:
     st.subheader("⚙️ 17 格裝備分項獨立更新 (裝備負責人專區)")
-    st.caption("💡 提示：此模式下您可以自由調整任何隊員的 17 格配裝，但無法修改角色名字、戰力與職業，也無法刪除隊員。")
     current_list = load_data_from_storage()
     member_names = [m["角色名稱"] for m in current_list]
     
@@ -232,4 +233,4 @@ elif is_gear_updater:
             target_idx_gear = next(i for i, x in enumerate(current_list) if x["角色名稱"] == selected_name_gear)
             current_member_gear = current_list[target_idx_gear]
             
-            # 精準拉出該角色當前的 17 格裝備作為預設值
+            current_gears = {field: current_member_gear.get(field, "無") for field in GEAR_FIELDS}
