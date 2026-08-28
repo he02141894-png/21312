@@ -22,7 +22,7 @@ JOB_OPTIONS = [
 
 # --- 定義 16 格裝備欄位 ---
 GEAR_FIELDS = [
-"主武","副武"
+"主","副"
 "頸部","上身","下身","腿部","護腿",
 "頭冠","耳環","項鍊","手環","戒指"
 "驅動器","觀測儀","偏轉器"
@@ -34,7 +34,8 @@ def load_data():
         with open(DB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     default_gears = {field: "無" for field in GEAR_FIELDS}
-    default_gears["武器"] = "不滅聖劍 +15"
+    default_gears["主"] = "不滅聖劍 +15"
+    default_gears["副"] = "無"
     default_gears["盔甲"] = "諸神黃昏鎧甲"
     return [
    ]
@@ -101,7 +102,7 @@ if is_admin:
         default_power = int(current_item["戰力"])
         saved_gears = current_item.get("裝備", {})
         if isinstance(saved_gears, str):
-            saved_gears = {"武器": saved_gears}
+            saved_gears = {"主": saved_gears}
         default_gears = {field: saved_gears.get(field, "無") for field in GEAR_FIELDS}
         button_label = "💾 儲存修改資訊"
     else:
@@ -128,8 +129,8 @@ if is_admin:
         st.markdown("**武器 & 防具**")
         g_col1, g_col2 = st.columns(2)
         with g_col1:
-            gear_inputs["主武"] = st.text_input("主武", value=default_gears["主武"])
-            gear_inputs["副武"] = st.text_input("副武", value=default_gears["副武"])
+            gear_inputs["主"] = st.text_input("主", value=default_gears["主"])
+            gear_inputs["副"] = st.text_input("副", value=default_gears["副"])
         with g_col2:
             gear_inputs["頸部"] = st.text_input("頸部", value=default_gears["頸部"])
             gear_inputs["上身"] = st.text_input("上身", value=default_gears["上身"])
