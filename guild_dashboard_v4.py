@@ -7,7 +7,8 @@ import os
 st.set_page_config(page_title="公會資訊管理系統 v4", page_icon="⚔️", layout="wide")
 
 DB_FILE = "guild_members_v3.json"
-ADMIN_PASSWORD = "11234"  # 💡 請在這裡修改你想要的幹部密碼
+# 💡 隱藏密碼核心語法：從系統保險箱中讀取名為 admin_password 的密碼
+ADMIN_PASSWORD = st.secrets["admin_password"]
 
 # --- 定義遊戲職業選項 ---
 JOB_OPTIONS = [
