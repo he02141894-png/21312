@@ -139,7 +139,7 @@ if is_admin:
         with g_col3:
             gear_inputs["三武"] = st.text_input("三武", value=default_gears["三武"])
         with g_col4:
-            gear_inputs["四武"] = st.text_input("四武", value=default_gears["四武])
+            gear_inputs["四武"] = st.text_input("四武", value=default_gears["四武"])
 
         st.markdown("**第二組：防具**")
         g_col5, g_col6, g_col7, g_col8, g_col9 = st.columns(5)
