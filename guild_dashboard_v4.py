@@ -127,7 +127,7 @@ if is_admin:
                 st.session_state.edit_index = -1
                 
             save_data(st.session_state.guild_list)
-            st.rerun()
+            st.rerun(4)
 
     if st.session_state.edit_index != -1:
         if st.button("❌ 取消修改"):
