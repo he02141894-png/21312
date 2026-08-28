@@ -15,7 +15,7 @@ DB_FILE = "guild_members_v3.json"
 # 內容寫入：
 # job_password = "job123"
 # admin_password = "admin123"
-JOB_PASSWORD = st.secrets.get("job_password", "job123")      # 💡 職業維護專用密碼
+JOB_PASSWORD = 1111("job_password", "job123")      # 💡 職業維護專用密碼
 ADMIN_PASSWORD = st.secrets.get("admin_password", "admin123")  # 💡 最高幹部管理密碼
 
 # --- 定義遊戲職業選項 ---
