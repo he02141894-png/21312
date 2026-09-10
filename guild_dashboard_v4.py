@@ -106,13 +106,16 @@ else:
         )
 
 
+                # 戰力輸入框
         st.session_state.member_df.at[idx, "戰力"] = r_col4.number_input(
             "戰力", 
             min_value=0, 
             value=int(row["戰力"]), 
             step=1000, 
             label_visibility="collapsed", 
-            key=f"power_{idx}"  # 🟢 修正：改成使用唯一的數字索引 idx
+            # 🟢 修正：使用複合 Key，既能保證唯一，又能鎖定當前名次，防止分裂成兩格
+            key=f"power_{row['ID']}_{idx}"  
         )
+
 
 
