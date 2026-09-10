@@ -64,29 +64,42 @@ else:
 # ==================== 主畫面：表格排版與渲染 ====================
 # 設定表格欄位寬度比例
 col1, col2, col3, col4 = st.columns([1.5, 3, 2, 3.5])
-cols.markdown("**排行**")
-cols.markdown("**ID**")
-cols.markdown("**職業**")
-cols.markdown("⚔️ **戰力 (可直接增減調整)**")
+col1.markdown("**排行**")
+col2.markdown("**ID**")
+col3.markdown("**職業**")
+col4.markdown("⚔️ **戰力 (可直接增減調整)**")
 st.divider()
+
 
 if not filtered_indices:
     st.info("💡 目前資料庫空空如也，或者查無相符的資料。請使用左側側邊欄新增人員！")
 else:
-    for idx in filtered_indices:
-        row = st.session_state.member_df.iloc[idx]
-        row_cols = st.columns([1.5, 3, 2, 3.5])
-        
-        # 顯示排行、ID、職業
-        # 幫前三名加上獎牌 Emoji 增加美觀度
-        rank_display = row["排行"]
-        if rank_display == 1: rank_display = "🥇 1"
-        elif rank_display == 2: rank_display = "🥈 2"
-        elif rank_display == 3: rank_display = "🥉 3"
-        
-        row_cols.write(f"**{rank_display}**")
-        row_cols.write(row["ID"])
-        row_cols.write(row["職業"])
+for idx in filtered_indices:
+    row = st.session_state.member_df.iloc[idx]
+    
+    # 將資料列的變數也對應拆開
+    r_col1, r_col2, r_col3, r_col4 = st.columns([1.5, 3, 2, 3.5])
+    
+    # 依序寫入各自的欄位中
+    rank_display = row["排行"]
+    if rank_display == 1: rank_display = "🥇 1"
+    elif rank_display == 2: rank_display = "🥈 2"
+    elif rank_display == 3: rank_display = "🥉 3"
+    
+    r_col1.write(f"**{rank_display}**")
+    r_col2.write(row["ID"])
+    r_col3.write(row["職業"])
+    
+    # 戰力輸入框也放進最後一欄 r_col4
+    st.session_state.member_df.at[idx, "戰力"] = r_col4.number_input(
+        "戰力", 
+        min_value=0, 
+        value=int(row["戰力"]), 
+        step=1000, 
+        label_visibility="collapsed", 
+        key=f"power_{row['ID']}"
+    )
+
         
         # 使用 number_input 製作可直接輸入、加減的戰力欄位
         # 每次調整戰力，都會即時觸發儲存並重新調整排行
