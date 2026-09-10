@@ -67,7 +67,7 @@ col1, col2, col3, col4 = st.columns([1.5, 3, 2, 3.5])
 col1.markdown("**排行**")
 col2.markdown("**ID**")
 col3.markdown("**職業**")
-col4.markdown("⚔️ **戰力 (可直接增減調整)**")
+col4.markdown("⚔️ **戰力**")
 st.divider()
 
 
