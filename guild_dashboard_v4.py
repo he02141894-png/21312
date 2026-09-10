@@ -106,14 +106,12 @@ else:
         )
 
 
-        
-        # 使用 number_input 製作可直接輸入、加減的戰力欄位
-        # 每次調整戰力，都會即時觸發儲存並重新調整排行
-        st.session_state.member_df.at[idx, "戰力"] = row_cols.number_input(
+        st.session_state.member_df.at[idx, "戰力"] = r_col4.number_input(
             "戰力", 
             min_value=0, 
             value=int(row["戰力"]), 
-            step=1000,  # 每次點選 + / - 增減 1000 戰力
+            step=1000, 
             label_visibility="collapsed", 
-            key=f"power_{row['ID']}"  # 確保 key 唯一
+            key=f"power_{row['ID']}"
         )
+
