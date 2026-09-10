@@ -92,5 +92,3 @@ with btn_col2:
             st.rerun()
 
 st.divider()
-
-
