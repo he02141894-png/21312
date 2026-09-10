@@ -73,9 +73,13 @@ st.divider()
 
 if not filtered_indices:
     st.info("💡 目前資料庫空空如也，或者查無相符的資料。請使用左側側邊欄新增人員！")
+
+
 else:
 for idx in filtered_indices:
     row = st.session_state.member_df.iloc[idx]
+
+
     
     # 將資料列的變數也對應拆開
     r_col1, r_col2, r_col3, r_col4 = st.columns([1.5, 3, 2, 3.5])
