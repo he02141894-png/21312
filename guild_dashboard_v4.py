@@ -112,6 +112,7 @@ else:
             value=int(row["戰力"]), 
             step=1000, 
             label_visibility="collapsed", 
-            key=f"power_{row['ID']}"
+            key=f"power_{idx}"  # 🟢 修正：改成使用唯一的數字索引 idx
         )
+
 
