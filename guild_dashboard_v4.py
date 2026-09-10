@@ -62,28 +62,27 @@ else:
     filtered_indices = st.session_state.member_df.index.tolist()
 
 # ==================== 主畫面：表格排版與渲染 ====================
-# 設定表格欄位寬度比例
-col1, col2, col3, col4 = st.columns([1.5, 3, 2, 3.5])
+# 重新微調標頭欄位比例，增加最右側的「操作」欄
+col1, col2, col3, col4, col5 = st.columns([1.2, 2.5, 1.8, 3.2, 1.3])
 col1.markdown("**排行**")
 col2.markdown("**ID**")
 col3.markdown("**職業**")
 col4.markdown("**戰力**")
+col5.markdown("⚙️ **操作**")  # 🟢 新增操作標頭
 st.divider()
 
-
-# ==================== 主畫面：表格排版與渲染 ====================
-# ==================== 主畫面：表格排版與渲染 ====================
 if not filtered_indices:
     st.info("💡 目前資料庫空空如也，或者查無相符的資料。請使用左側側邊欄新增人員！")
 else:
-    # 建立一個臨時字典，用來收集使用者在網頁上新輸入的戰力
+    # 建立一個臨時字典與清單，用來收集網頁上的變動
     new_powers = {}
+    to_delete = None  # 用來記錄哪一個 ID 被點擊了刪除
 
     for idx in filtered_indices:
         row = st.session_state.member_df.iloc[idx]
         
-        # 建立四個欄位
-        r_col1, r_col2, r_col3, r_col4 = st.columns([1.5, 3, 2, 3.5])
+        # 建立五個欄位
+        r_col1, r_col2, r_col3, r_col4, r_col5 = st.columns([1.2, 2.5, 1.8, 3.2, 1.3])
         
         # 1. 顯示排行與獎牌
         rank_display = row["排行"]
@@ -96,22 +95,36 @@ else:
         r_col2.write(row["ID"])
         r_col3.write(row["職業"])
         
-        # 3. 渲染戰力輸入框（精準渲染一格，並將數值暫存至變數中）
+        # 3. 渲染戰力輸入框（精準一格）
         updated_val = r_col4.number_input(
             "戰力", 
             min_value=0, 
             value=int(row["戰力"]), 
             step=1000, 
             label_visibility="collapsed", 
-            key=f"power_input_{row['ID']}"  # 確保 key 唯一且不重複渲染
+            key=f"power_input_{row['ID']}"
         )
-        
-        # 記錄這個玩家的新戰力
         new_powers[idx] = updated_val
+        
+        # 4. 🟢 新增：渲染紅色的刪除按鈕
+        # 使用 type="primary" 可以讓按鈕變成醒目的紅色（在 Streamlit 預設主題中）
+        if r_col5.button("🗑️ 刪除", key=f"del_{row['ID']}", use_container_width=True):
+            to_delete = row["ID"]  # 標記要刪除的玩家 ID
 
-    # 4. 當所有輸入框都精準渲染完畢後，再一併把新數值更新回系統資料庫
+    # 5. 處理刪除邏輯
+    if to_delete is not None:
+        # 從 DataFrame 中將該 ID 的整行資料剔除
+        st.session_state.member_df = st.session_state.member_df[
+            st.session_state.member_df["ID"] != to_delete
+        ].reset_index(drop=True)
+        st.toast(f"🗑️ 已成功刪除成員：{to_delete}")
+        st.rerun()  # 立即重新整理網頁，刷新畫面與排行
+
+    # 6. 更新其餘人員的新戰力數值
     for idx, p_val in new_powers.items():
-        st.session_state.member_df.at[idx, "戰力"] = p_val
+        # 防呆：如果剛才點了刪除，這個 idx 可能已經不存在，需判斷
+        if idx in st.session_state.member_df.index:
+            st.session_state.member_df.at[idx, "戰力"] = p_val
 
 
 
