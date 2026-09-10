@@ -7,24 +7,20 @@ st.set_page_config(page_title="戰力成員管理資料庫", layout="wide")
 # 1. 初始化原始資料 (使用 st.session_state 確保資料能長久保存)
 if 'member_df' not in st.session_state:
     initial_data = [
-        {"ID": "範例玩家A", "職業": "制裁者", "戰力": 500000},
-        {"ID": "煉獄", "職業": "制裁者", "戰力": 10000}
+
     ]
     st.session_state.member_df = pd.DataFrame(initial_data)
-
-st.title("🏆 戰力成員管理系統 (手動輸入版)")
-st.caption("💡 操作說明：\n1. 雙擊 **戰力** 欄位即可直接鍵盤輸入數字。\n2. 在左側側邊欄可以「新增成員」。\n3. 修改完成後，點擊下方的 **「💾 儲存並更新排行」** 按鈕即可重新計算排名。")
 
 # ==================== 側邊欄：新增人員功能 ====================
 with st.sidebar:
     st.header("👤 新增成員")
     with st.form(key="add_member_form", clear_on_submit=True):
-        new_id = st.text_input("輸入玩家 ID", placeholder="例如：斬擊之王").strip()
+        new_id = st.text_input("輸入玩家 ID", placeholder="例如：").strip()
         
         job_options = ["制裁者", "幻影神兵", "執行者", "操靈師", "無畏艦", "匠師", "仲裁者", "毀滅"]
         new_job = st.selectbox("選擇職業", job_options)
         
-        new_power = st.number_input("設定初始戰力", min_value=0, value=10000, step=1000)
+        new_power = st.number_input("設定初始戰力", min_value=0, value=0, step=1)
         
         submit_button = st.form_submit_button(label="➕ 點擊新增人員")
         
@@ -56,11 +52,11 @@ edited_df = st.data_editor(
     use_container_width=True,
     num_rows="fixed", # 固定目前列數（新增一律走側邊欄表單）
     column_config={
-        "排行": st.column_config.Column("排行 🏆", disabled=True, width="medium"),
-        "ID": st.column_config.Column("玩家 ID 👤", disabled=True, width="large"),
-        "職業": st.column_config.Column("職業 ⚔️", disabled=True, width="medium"),
+        "排行": st.column_config.Column("排行 ", disabled=True, width="medium"),
+        "ID": st.column_config.Column("ID", disabled=True, width="large"),
+        "職業": st.column_config.Column("職業", disabled=True, width="medium"),
         "戰力": st.column_config.NumberColumn(
-            "戰力 (點擊兩下手動輸入) 📊", 
+            "戰力", 
             disabled=False, 
             min_value=0,
             format="%d" # 純數字格式，去除微調按鈕
