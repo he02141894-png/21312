@@ -72,50 +72,46 @@ st.divider()
 
 
 # ==================== 主畫面：表格排版與渲染 ====================
+# ==================== 主畫面：表格排版與渲染 ====================
 if not filtered_indices:
     st.info("💡 目前資料庫空空如也，或者查無相符的資料。請使用左側側邊欄新增人員！")
 else:
-    # 第 78 行是 else:
-    # 第 79 行的 for 前面必須要有 4 個空格的縮排！
+    # 建立一個臨時字典，用來收集使用者在網頁上新輸入的戰力
+    new_powers = {}
+
     for idx in filtered_indices:
         row = st.session_state.member_df.iloc[idx]
         
-        # 迴圈內部的程式碼前面必須要有 8 個空格的縮排！
+        # 建立四個欄位
         r_col1, r_col2, r_col3, r_col4 = st.columns([1.5, 3, 2, 3.5])
         
+        # 1. 顯示排行與獎牌
         rank_display = row["排行"]
-        if rank_display == 1: 
-            rank_display = "🥇 1"
-        elif rank_display == 2: 
-            rank_display = "🥈 2"
-        elif rank_display == 3: 
-            rank_display = "🥉 3"
-        
+        if rank_display == 1: rank_display = "🥇 1"
+        elif rank_display == 2: rank_display = "🥈 2"
+        elif rank_display == 3: rank_display = "🥉 3"
         r_col1.write(f"**{rank_display}**")
+        
+        # 2. 顯示 ID 與 職業
         r_col2.write(row["ID"])
         r_col3.write(row["職業"])
         
-        # 戰力輸入框也放進最後一欄 r_col4
-        st.session_state.member_df.at[idx, "戰力"] = r_col4.number_input(
+        # 3. 渲染戰力輸入框（精準渲染一格，並將數值暫存至變數中）
+        updated_val = r_col4.number_input(
             "戰力", 
             min_value=0, 
             value=int(row["戰力"]), 
             step=1000, 
             label_visibility="collapsed", 
-            key=f"power_{row['ID']}"
+            key=f"power_input_{row['ID']}"  # 確保 key 唯一且不重複渲染
         )
+        
+        # 記錄這個玩家的新戰力
+        new_powers[idx] = updated_val
 
-
-                # 戰力輸入框
-        st.session_state.member_df.at[idx, "戰力"] = r_col4.number_input(
-            "戰力", 
-            min_value=0, 
-            value=int(row["戰力"]), 
-            step=1000, 
-            label_visibility="collapsed", 
-            # 🟢 修正：使用複合 Key，既能保證唯一，又能鎖定當前名次，防止分裂成兩格
-            key=f"power_{row['ID']}_{idx}"  
-        )
+    # 4. 當所有輸入框都精準渲染完畢後，再一併把新數值更新回系統資料庫
+    for idx, p_val in new_powers.items():
+        st.session_state.member_df.at[idx, "戰力"] = p_val
 
 
 
