@@ -63,7 +63,7 @@ else:
 
 # ==================== 主畫面：表格排版與渲染 ====================
 # 設定表格欄位寬度比例
-cols = st.columns([1.5, 3, 2, 3.5])
+col1, col2, col3, col4 = st.columns([1.5, 3, 2, 3.5])
 cols.markdown("**排行**")
 cols.markdown("**ID**")
 cols.markdown("**職業**")
