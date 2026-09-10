@@ -93,20 +93,4 @@ with btn_col2:
 
 st.divider()
 
-# ==================== 🟢 新增：一鍵導出 Excel 功能 ====================
-st.subheader("📥 數據導出中心")
 
-# 將現有的 DataFrame 轉化成記憶體中的 Excel 二進位串流
-buffer = io.BytesIO()
-with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-    # 導出排好序的完整資料，且不保留 Pandas 內建的 index 索引軸
-    display_df.to_excel(writer, index=False, sheet_name='公會戰力排行')
-
-# 建立 Streamlit 內建下載按鈕
-st.download_button(
-    label="📥 下載目前排行至 Excel 檔案 (.xlsx)",
-    data=buffer.getvalue(),
-    file_name="公會戰力排行表.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    use_container_width=False
-)
