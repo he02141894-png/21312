@@ -55,7 +55,8 @@ edited_df = st.data_editor(
         "排行": st.column_config.Column("排行 ", disabled=True, width="medium"),
         "ID": st.column_config.Column("ID", disabled=True, width="large"),
         "職業": st.column_config.Column("職業", disabled=True, width="medium"),
-        "戰力": st.column_config.NumberColumn("戰力", disabled=False, min_value=0, format="%d" # 純數字格式，去除微調按鈕)
+        "戰力": st.column_config.NumberColumn("戰力", disabled=False, min_value=0, format="%d" # 純數字格式，去除微調按鈕 
+                                           )
     }
 )
 
